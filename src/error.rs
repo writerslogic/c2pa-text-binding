@@ -1,11 +1,20 @@
-#[derive(Debug, thiserror::Error)]
+use std::fmt;
+
+#[derive(Debug)]
 pub enum Error {
-    #[error("text content too short for fingerprinting")]
     ContentTooShort,
-
-    #[error("fingerprint generation failed: {0}")]
     GenerationFailed(String),
-
-    #[error("fingerprint match failed: {0}")]
     MatchFailed(String),
 }
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ContentTooShort => write!(f, "text content too short for fingerprinting"),
+            Self::GenerationFailed(s) => write!(f, "fingerprint generation failed: {s}"),
+            Self::MatchFailed(s) => write!(f, "fingerprint match failed: {s}"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}

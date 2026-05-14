@@ -1,6 +1,6 @@
 [package]
 name = "c2pa-text-binding"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "C2PA soft binding and content fingerprinting for text assets"
 license = "MIT OR Apache-2.0"
@@ -9,4 +9,3 @@ keywords = ["c2pa", "provenance", "text", "fingerprint", "soft-binding"]
 categories = ["encoding", "text-processing"]
 
 [dependencies]
-thiserror = "2"
