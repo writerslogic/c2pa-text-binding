@@ -4,6 +4,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/writerslogic/c2pa-text-binding/actions/workflows/ci.yml"><img src="https://github.com/writerslogic/c2pa-text-binding/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://crates.io/crates/c2pa-text-binding"><img src="https://img.shields.io/crates/v/c2pa-text-binding.svg" alt="crates.io"></a>
   <a href="https://docs.rs/c2pa-text-binding"><img src="https://docs.rs/c2pa-text-binding/badge.svg" alt="docs.rs"></a>
   <a href="#license"><img src="https://img.shields.io/crates/l/c2pa-text-binding.svg" alt="License"></a>
