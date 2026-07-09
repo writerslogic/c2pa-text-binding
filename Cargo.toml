@@ -9,6 +9,9 @@ keywords = ["c2pa", "provenance", "text", "fingerprint", "soft-binding"]
 categories = ["encoding", "text-processing"]
 readme = "README.md"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 sha2 = { version = "0.10", default-features = false }
 hmac = { version = "0.12", default-features = false }
@@ -16,3 +19,8 @@ blake2 = { version = "0.10", default-features = false }
 unicode-normalization = { version = "0.1" }
 reed-solomon-erasure = { version = "6.0", default-features = false }
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
+ed25519-dalek = { version = "2", default-features = false, features = ["zeroize"] }
+coset = { version = "0.3", default-features = false }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"

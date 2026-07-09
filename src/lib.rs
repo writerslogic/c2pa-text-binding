@@ -24,14 +24,19 @@
 
 pub mod crosscheck;
 pub mod error;
+pub mod manifest;
 pub mod minhash;
 pub mod normalize;
 pub mod simhash;
 pub mod stego;
 pub mod structure;
 
+#[cfg(target_arch = "wasm32")]
+mod wasm;
+
 pub use crosscheck::{classify, crosscheck_tag, Confidence, Evidence};
 pub use error::Error;
+pub use manifest::{public_key, sign_cose, verify_cose};
 pub use minhash::MinHash;
 pub use simhash::{Fingerprint, Hash256};
 pub use stego::{embed, extract, Recovered};
