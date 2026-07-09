@@ -2,10 +2,17 @@
 name = "c2pa-text-binding"
 version = "0.1.1"
 edition = "2021"
-description = "C2PA soft binding and content fingerprinting for text assets"
+description = "C2PA soft binding and content fingerprinting for text assets (watermark + fingerprint family)"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/writerslogic/c2pa-text-binding"
 keywords = ["c2pa", "provenance", "text", "fingerprint", "soft-binding"]
 categories = ["encoding", "text-processing"]
+readme = "README.md"
 
 [dependencies]
+sha2 = { version = "0.10", default-features = false }
+hmac = { version = "0.12", default-features = false }
+blake2 = { version = "0.10", default-features = false }
+unicode-normalization = { version = "0.1" }
+reed-solomon-erasure = { version = "6.0", default-features = false }
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
