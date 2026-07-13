@@ -6,7 +6,7 @@
 //! server. Functions are granular so the JS layer assembles the manifest and
 //! performs comparisons; nothing here needs a JSON dependency.
 
-use crate::{crosscheck, manifest, minhash, simhash, stego, structure};
+use crate::{crosscheck, manifest, minhash, simhash, soft_binding, stego, structure};
 use wasm_bindgen::prelude::*;
 
 fn parse_key32(hex_str: &str) -> Result<[u8; 32], JsError> {
@@ -137,6 +137,42 @@ pub fn verify(cose_hex: &str, public_hex: &str) -> Result<String, JsError> {
     let cose = hex::decode(cose_hex.trim()).map_err(|e| JsError::new(&format!("bad cose: {e}")))?;
     let payload = manifest::verify_cose(&cose, &pk).map_err(|e| JsError::new(&e.to_string()))?;
     String::from_utf8(payload).map_err(|e| JsError::new(&format!("payload not utf-8: {e}")))
+}
+
+/// Build the `c2pa.soft-binding` assertion (list id 41, surface fingerprint)
+/// as CBOR, hex-encoded. Sign the result with [`sign`] and store it under the
+/// `c2pa.soft-binding` label. Includes per-window scoped blocks.
+#[wasm_bindgen]
+pub fn soft_binding_fingerprint(text: &str) -> String {
+    let fp = simhash::Fingerprint::compute(text);
+    let sb = soft_binding::from_fingerprint(&fp);
+    hex::encode(sb.to_cbor().expect("soft-binding CBOR encode"))
+}
+
+/// Build the `c2pa.soft-binding` assertion (list id 43, structural) as CBOR hex.
+#[wasm_bindgen]
+pub fn soft_binding_structure(text: &str) -> String {
+    let sb = soft_binding::from_structure(&structure::compute(text));
+    hex::encode(sb.to_cbor().expect("soft-binding CBOR encode"))
+}
+
+/// Build the `c2pa.soft-binding` assertion (list id 44, MinHash) as CBOR hex.
+#[wasm_bindgen]
+pub fn soft_binding_minhash(text: &str) -> String {
+    let sb = soft_binding::from_minhash(&minhash::MinHash::compute(text));
+    hex::encode(sb.to_cbor().expect("soft-binding CBOR encode"))
+}
+
+/// Build the `c2pa.soft-binding` assertion (list id 42, ZWC watermark) for a
+/// routing `pointer_hex`, as CBOR hex.
+#[wasm_bindgen]
+pub fn soft_binding_watermark(pointer_hex: &str) -> Result<String, JsError> {
+    let pointer =
+        hex::decode(pointer_hex.trim()).map_err(|e| JsError::new(&format!("bad pointer: {e}")))?;
+    let sb = soft_binding::from_watermark_pointer(&pointer);
+    Ok(hex::encode(
+        sb.to_cbor().map_err(|e| JsError::new(&e.to_string()))?,
+    ))
 }
 
 /// Anti-transfer cross-check tag (hex): `HMAC(key, repo_id ‖ content_hash)`.

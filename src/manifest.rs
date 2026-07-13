@@ -4,8 +4,8 @@
 //! `c2pa.soft-binding` assertion payload.
 //!
 //! This produces a compact, self-verifying signed envelope over an opaque
-//! payload (the caller supplies the serialized soft-binding assertion). It is
-//! deterministic — the Ed25519 key is supplied by the caller, so no RNG is
+//! payload (typically the [`crate::soft_binding::SoftBinding`] assertion CBOR).
+//! It is deterministic — the Ed25519 key is supplied by the caller, so no RNG is
 //! needed and the same input always yields the same signature. This is a
 //! *minimal* manifest for self-contained resolution; it is not a full JUMBF
 //! C2PA manifest and makes no claim to C2PA conformance certification.
@@ -17,7 +17,10 @@ use coset::{
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 
 /// The C2PA assertion label a soft-binding payload is stored under.
-pub const SOFT_BINDING_LABEL: &str = "c2pa.soft-binding";
+///
+/// Defined in [`crate::soft_binding`]; re-exported here for callers signing the
+/// assertion.
+pub use crate::soft_binding::SOFT_BINDING_LABEL;
 
 /// Derive the 32-byte Ed25519 public key from a 32-byte secret key.
 pub fn public_key(secret_key: &[u8; 32]) -> [u8; 32] {

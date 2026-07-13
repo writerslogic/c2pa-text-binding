@@ -112,6 +112,23 @@ impl MinHash {
         }
     }
 
+    /// Rehydrate a `MinHash` from a stored 128-value signature, recomputing the
+    /// LSH bands. `shingle_count` is unknown from the signature alone and is set
+    /// to zero; it does not affect [`jaccard`](Self::jaccard) or
+    /// [`shares_band`](Self::shares_band).
+    pub fn from_signature(sig: [u64; NUM_PERM]) -> Self {
+        let mut bands = [0u64; BANDS];
+        for (band, slot) in bands.iter_mut().enumerate() {
+            let start = band * ROWS;
+            *slot = band_hash(&sig[start..start + ROWS]);
+        }
+        MinHash {
+            sig,
+            bands,
+            shingle_count: 0,
+        }
+    }
+
     /// Estimated Jaccard similarity: the fraction of equal signature positions.
     pub fn jaccard(&self, other: &Self) -> f64 {
         let equal = self

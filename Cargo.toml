@@ -1,6 +1,6 @@
 [package]
 name = "c2pa-text-binding"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 description = "C2PA soft binding and content fingerprinting for text assets (watermark + fingerprint family)"
 license = "MIT OR Apache-2.0"
@@ -21,9 +21,17 @@ reed-solomon-erasure = { version = "6.0", default-features = false }
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
 ed25519-dalek = { version = "2", default-features = false, features = ["zeroize"] }
 coset = { version = "0.3", default-features = false }
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+serde_bytes = { version = "0.11", default-features = false, features = ["alloc"] }
+ciborium = { version = "0.2", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
 
 [dev-dependencies]
 serde_json = "1"
+# The real C2PA reference reader, used only in tests to prove the emitted
+# `c2pa.soft-binding` assertion round-trips through it. Pure-Rust crypto backend,
+# no OpenSSL, so it never touches the shipped library or the wasm build.
+c2pa = { version = "0.89", default-features = false, features = ["rust_native_crypto"] }
+c2pa_cbor = "0.77"
