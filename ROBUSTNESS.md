@@ -49,8 +49,11 @@ harness in `examples/robustness_bench.rs`.
 ## Reference results — WritersLogic text soft-binding family
 
 n = 100 PAN'26 political speeches. Balanced Accuracy per attack (1.000 = perfect,
-0.500 = chance). True-negative rate = 1.000 for all (no false matches between
-unrelated documents); watermark visible-fidelity = 1.000.
+0.500 = chance). Watermark visible-fidelity = 1.000. The true-negative rate in
+this table samples **one** unrelated document per source; for the grounded
+all-pairs false-match rate (which reveals that 43 structural is *not*
+false-match-free) see [Threshold grounding](#threshold-grounding-and-confidence-tiers)
+below.
 
 | attack | 41 SimHash | 43 structural | 44 MinHash | 42 ZWC watermark |
 |---|---|---|---|---|
@@ -99,6 +102,68 @@ row is a diagnostic that isolates synonym substitution from reordering.
   preserve token counts. The durable fix is a token-count-invariant, set-based
   structural signal (e.g. POS / dependency n-gram multisets + function-word
   distribution) rather than length-sequence hashing.
+
+## Threshold grounding and confidence tiers
+
+The table above scores one intensity per attack. To ground the registered
+thresholds — and the BOUND / LIKELY / REVIEW tiers built on them — as curves
+rather than points, `examples/threshold_sweep.rs` sweeps intensity axes and
+tests **all** unrelated document pairs. Numbers below are n = 200 PAN'26
+documents (≥ 1024 chars each, so the excerpt/window path is exercised);
+reproduce with `cargo run --release --example threshold_sweep -- <dataset> 200`.
+
+**All-pairs false-match rate** (39,800 ordered unrelated pairs, at each
+algorithm's registered threshold):
+
+| algorithm | threshold | false matches | FMR |
+|---|---|---|---|
+| 41 SimHash | Hamming ≤ 32 | 0 / 39,800 | 0.000 |
+| 43 structural | Hamming ≤ 24 | 392 / 39,800 | **0.010** |
+| 44 MinHash | Jaccard ≥ 0.70 or shared band | 0 / 39,800 | 0.000 |
+
+**Separation margin** (whole-document Hamming, bits): the largest distance under
+benign reformatting vs. the smallest distance to any unrelated document.
+
+| algorithm | max benign dist | threshold | min unrelated dist | margin |
+|---|---|---|---|---|
+| 41 SimHash | 3 | 32 | 44 | **+12** |
+| 43 structural | 0 | 24 | 8 | **−16** |
+
+**Edit-distance sweep** (survival, k = word substitutions) and **excerpt-length
+sweep** (survival, contiguous window):
+
+| k edits | 41 | 43 | 44 | | fraction | 41 (window) | 44 (LSH) |
+|---|---|---|---|---|---|---|---|
+| 1 | 1.000 | 1.000 | 1.000 | | 0.1 | 0.045 | 0.000 |
+| 4 | 1.000 | 0.995 | 1.000 | | 0.3 | 0.265 | 0.200 |
+| 8 | 0.985 | 0.985 | 1.000 | | 0.5 | 0.360 | 0.825 |
+| 16 | 0.745 | 0.855 | 0.945 | | 0.7 | 0.845 | 1.000 |
+| 32 | 0.225 | 0.590 | 0.610 | | 0.9 | 1.000 | 1.000 |
+
+Reformatting (case-fold → whitespace → zero-width injection → NFKD/retype) holds
+survival at **1.000** for all three at every level: normalization absorbs format,
+so the whole threshold budget is spent on content edits.
+
+### How this grounds the tiers
+
+- **BOUND requires a *durable* fingerprint match (41 or 44) plus the keyed
+  cross-check.** Both durable fingerprints show **zero** false matches over
+  39,800 unrelated pairs, so a false BOUND from fingerprint collision is below
+  measurement here; the HMAC cross-check bounds *transfer* cryptographically.
+  This is what `crosscheck::classify` enforces.
+- **A structural (43) match is corroborating only — never BOUND.** Its threshold
+  (24) sits *above* the nearest unrelated distance (8): a **−16-bit** margin and
+  a measured 1.0% false-match rate. `crosscheck::classify` therefore caps a
+  structural-only candidate at LIKELY even with the cross-check present. This
+  corrects the single-neighbour reading in the reference table, which reported
+  no false matches only because it sampled one negative per document.
+- **A watermark (42) hit alone is LIKELY, never BOUND**, because a zero-width
+  carrier can be transferred; BOUND still needs the recomputed durable
+  fingerprint. The tier logic and these thresholds are unit-tested in
+  `src/crosscheck.rs`.
+
+None of this upgrades the conformance claim: the algorithms are registered in
+the soft-binding list, which is not the same as C2PA conformance certification.
 
 ## Proposed registry convention
 

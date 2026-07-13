@@ -12,9 +12,16 @@
 
 ## Overview
 
-Provides a trait-based interface for text content fingerprinting algorithms compatible with the [C2PA Soft Binding](https://c2pa.org/specifications/) framework. Implementations generate content-derived fingerprints that survive reformatting, re-encoding, and partial modification of text content, enabling manifest recovery when hard bindings are broken.
+A concrete family of text soft-binding algorithms compatible with the [C2PA Soft Binding](https://spec.c2pa.org/) framework, each registered in the [C2PA soft binding algorithm list](https://github.com/c2pa-org/softbinding-algorithm-list). A soft binding derives a content-keyed value that survives reformatting, re-encoding, excerpting, and light editing, so a manifest is recoverable when the hard binding — a byte-exact hash — has been broken.
 
-Where hard bindings (cryptographic hashes) break on any byte-level change, soft bindings use perceptual fingerprints to re-associate content with its provenance even after transformation.
+| Module | Algorithm (list id) | Kind |
+|---|---|---|
+| `simhash` | `com.writerslogic.text-fingerprint.1` (41) | surface fingerprint |
+| `stego` | `com.writerslogic.zwc-watermark.2` (42) | zero-width watermark |
+| `structure` | `com.writerslogic.text-structure.1` (43) | structural fingerprint |
+| `minhash` | `com.writerslogic.text-minhash.1` (44) | excerpt/quotation fingerprint |
+
+This crate is the **perceptual/watermark recovery layer**. It is distinct from the Variation-Selector transport used elsewhere in WritersProof, which is a *hard* binding (a `c2pa.hash.data` over normalized text) and is not soft binding. Registration in the algorithm list is **not** C2PA conformance certification.
 
 ## Quick Start
 
@@ -23,37 +30,47 @@ Where hard bindings (cryptographic hashes) break on any byte-level change, soft 
 c2pa-text-binding = "0.1"
 ```
 
-### Implement a fingerprinting algorithm
+### Emit and sign a `c2pa.soft-binding` assertion
+
+`soft_binding` builds the normative CBOR assertion (it round-trips through the
+`c2pa-rs` reader — see `tests/c2pa_roundtrip.rs`); `manifest` signs it as a
+COSE_Sign1 / EdDSA envelope.
 
 ```rust
-use c2pa_text_binding::{TextFingerprint, FingerprintResult, Error};
+use c2pa_text_binding::{simhash::Fingerprint, soft_binding, sign_cose, SOFT_BINDING_LABEL};
 
-struct MyAlgorithm;
+let text = "…the document being bound…";
+let secret_key = [7u8; 32];                   // caller-supplied Ed25519 secret
+let assertion = soft_binding::from_fingerprint(&Fingerprint::compute(text));
+let cbor = assertion.to_cbor()?;              // store under SOFT_BINDING_LABEL
+let signed = sign_cose(&cbor, &secret_key)?;  // detached-key COSE_Sign1
+# Ok::<(), c2pa_text_binding::Error>(())
+```
 
-impl TextFingerprint for MyAlgorithm {
-    fn algorithm_id(&self) -> &str {
-        "com.writerslogic.text-fingerprint-v1"
-    }
+### Recover and classify a candidate
 
-    fn generate(&self, text: &str) -> Result<FingerprintResult, Error> {
-        // Your fingerprinting implementation
-        todo!()
-    }
+The verify path recomputes the fingerprint from the current text, compares it to
+the stored value at the algorithm's registered threshold, and returns a
+confidence tier. BOUND requires a *durable* fingerprint match (41/44, measured
+zero false matches) plus the anti-transfer cross-check; a structural (43) match
+or a watermark hit alone caps at LIKELY. Tier thresholds are grounded in
+[`ROBUSTNESS.md`](ROBUSTNESS.md).
 
-    fn match_fingerprint(
-        &self,
-        text: &str,
-        fingerprint: &[u8],
-    ) -> Result<f64, Error> {
-        // Returns confidence score 0.0..=1.0
-        todo!()
-    }
-}
+```rust
+use c2pa_text_binding::{simhash::Fingerprint, soft_binding::{self, SoftBinding}, verify, Confidence};
+
+let text = "…the document being bound…";
+let cbor = soft_binding::from_fingerprint(&Fingerprint::compute(text)).to_cbor()?;
+
+let candidate = SoftBinding::from_cbor(&cbor)?;
+let tier = verify(text, &candidate, /*watermark_verified=*/ false, /*crosscheck_ok=*/ true);
+assert_eq!(tier, Confidence::Bound);
+# Ok::<(), c2pa_text_binding::Error>(())
 ```
 
 ### Register with the Soft Binding Resolution API
 
-Fingerprinting algorithms can be registered with the [C2PA Soft Binding Resolution API](https://c2pa.org/specifications/) to enable decentralized manifest recovery for text assets.
+These algorithms are registered in the [C2PA soft binding algorithm list](https://github.com/c2pa-org/softbinding-algorithm-list), so a `c2pa.soft-binding` assertion referencing them can drive [decentralized manifest recovery](https://spec.c2pa.org/).
 
 ## Related Crates
 
