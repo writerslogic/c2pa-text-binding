@@ -1,0 +1,29 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "c2pa-text-binding"
+description = "C2PA soft binding and content fingerprinting for text assets (watermark + fingerprint family)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT OR Apache-2.0" }
+authors = [{ name = "WritersLogic", email = "david@writerslogic.com" }]
+keywords = ["c2pa", "provenance", "text", "fingerprint", "soft-binding"]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Processing",
+    "Topic :: Security :: Cryptography",
+]
+dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/writerslogic/c2pa-text-binding"
+
+[tool.maturin]
+# Build the native extension with the Python bindings enabled. Version is read
+# from Cargo.toml (single source of truth). Import name uses underscores; the
+# distribution name (project.name) keeps the dash.
+module-name = "c2pa_text_binding"
+features = ["python"]

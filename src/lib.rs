@@ -41,6 +41,9 @@ pub mod structure;
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 
+#[cfg(feature = "python")]
+mod python;
+
 pub use crosscheck::{
     classify, crosscheck_tag, fingerprint_evidence, verify, Confidence, Evidence,
 };

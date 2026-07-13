@@ -24,6 +24,14 @@ coset = { version = "0.3", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
 serde_bytes = { version = "0.11", default-features = false, features = ["alloc"] }
 ciborium = { version = "0.2", default-features = false }
+# Optional native Python bindings (feature `python`), built into a wheel by
+# maturin. abi3 -> one wheel per platform covers CPython 3.9+.
+pyo3 = { version = "0.23", optional = true, features = ["extension-module", "abi3-py39"] }
+
+[features]
+# Native Python extension module. Off by default so the shipped rlib, the wasm
+# build, and `cargo test` never link libpython; maturin enables it per wheel.
+python = ["dep:pyo3"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
