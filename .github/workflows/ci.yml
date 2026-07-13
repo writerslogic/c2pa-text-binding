@@ -34,8 +34,9 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - run: cargo check --all-features
-      - run: cargo clippy --all-features -- -D warnings
+      - run: cargo clippy --all-targets -- -D warnings
+      # Lint the Python bindings (check-only; never links libpython).
+      - run: cargo clippy --lib --features python -- -D warnings
       - run: cargo fmt --all -- --check
 
   test:
@@ -51,4 +52,7 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
-      - run: cargo test --all-features
+      # Not --all-features: the `python` feature enables pyo3/extension-module,
+      # which omits libpython and cannot link a test binary. The Python bindings
+      # are verified by the wheel build + import in the release workflow.
+      - run: cargo test
