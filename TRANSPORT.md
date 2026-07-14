@@ -99,17 +99,23 @@ Production libraries and system tools applied as-is, via
 bleach-sanitize     intact   intact   intact   intact   intact   intact   intact
 nh3-sanitize        intact   intact   intact   intact   intact   intact   intact
 docx-roundtrip      intact   intact   intact   intact   intact   intact   intact
-email-mime-roundtrip intact  intact   intact   intact   intact   intact   intact
 json-roundtrip      intact   intact   intact   intact   intact   intact   intact
 sqlite-roundtrip    intact   intact   intact   intact   intact   intact   intact
 lxml-html-parse     intact   intact   intact   intact   intact   intact   intact
-markdown-pipeline   intact   intact   intact   intact   intact   intact   intact
-pandoc-md-html-md   intact   intact   intact   intact   intact   intact   intact
 textutil-rtf        intact   intact   intact   intact   intact   intact   intact
+email-mime-roundtrip bind-broke (all carriers) ..................... intact
+markdown-pipeline    bind-broke (all carriers) ..................... intact
+pandoc-md-html-md    bind-broke (all carriers) ..................... intact
 ftfy-fix-text       gone     gone     gone     intact   intact   intact   intact
 tidy-html           gone     gone     gone     gone     gone     gone     intact
 iconv-ascii-translit gone    gone     gone     gone     gone     gone     intact
 ```
+
+`bind-broke` = the invisible carrier survived, but the transport reflowed the
+visible text, so the A.8 **hard binding** (a hash over exact NFC text) no longer
+validates. The manifest is recoverable and useless. Only the fingerprint
+(`simhash`) — a soft binding derived from the words, tolerant of reflow — stays
+`intact`.
 
 ## Findings
 
@@ -162,6 +168,21 @@ iconv-ascii-translit gone    gone     gone     gone     gone     gone     intact
    sanitization strips these carriers, and it is a security result: an invisible
    payload survives the sanitizers and data formats commonly relied on to handle
    untrusted text.
+
+9. **Carrier survival is not provenance survival.** Validating the A.8 hard binding
+   — a hash over the exact NFC visible text — after each transport shows that email
+   MIME, Markdown, and `pandoc` round trips leave the carrier intact but **break
+   the binding**: they reflow whitespace, so the recovered manifest no longer
+   validates against the content. This holds for every carrier equally — it is the
+   binding, not the carrier — and only the reflow-tolerant fingerprint survives. So
+   A.8's real-world provenance survival is materially worse than carrier survival
+   suggests, and the case for a layered soft-binding recovery path is empirical.
+
+10. **A.8 needs integrity, not just a length.** The property tests show A.8 v1 is
+    fail-safe under truncation (the length field catches it) but returns a wrong
+    payload under byte *modification* — no carrier without an integrity field
+    (`stego`'s HMAC is the exception) can detect a mutated payload. A checksum, not
+    only a length, is required for fail-safety.
 
 ## Limitations
 

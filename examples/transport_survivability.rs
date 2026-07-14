@@ -53,6 +53,7 @@ enum Outcome {
     Gone,
     Safe,
     Unsafe,
+    BindingBroken,
 }
 
 impl Outcome {
@@ -62,7 +63,30 @@ impl Outcome {
             Outcome::Gone => "gone",
             Outcome::Safe => "safe",
             Outcome::Unsafe => "UNSAFE",
+            Outcome::BindingBroken => "bind-broke",
         }
+    }
+}
+
+/// The carrier survived, but does the content binding still validate? A hard
+/// binding is a hash over the visible text; a transport that reflows or
+/// normalizes the visible content breaks it even when the carrier is intact.
+fn binding_ok(transformed: &str) -> bool {
+    let visible: String = transformed.chars().filter(|c| !is_carrier_cp(*c)).collect();
+    // A.8 hard binding: exact NFC bytes, not the whitespace-tolerant soft-binding
+    // canonicalization. Reflow that the carrier survives still breaks this.
+    let nfc = |s: &str| s.nfc().collect::<String>();
+    nfc(&visible) == nfc(HOST)
+}
+
+/// Refine a carrier's recovery outcome with the binding check: a recovered
+/// payload whose visible text no longer hashes to the original is `bind-broke`,
+/// not `intact`. The fingerprint method carries no binding, so it is exempt.
+fn refine(name: &str, transformed: &str, o: Outcome) -> Outcome {
+    if name != "simhash" && o == Outcome::Intact && !binding_ok(transformed) {
+        Outcome::BindingBroken
+    } else {
+        o
     }
 }
 
@@ -270,7 +294,9 @@ fn classify_file(path: &str) {
     for (transport, per_method) in &results {
         print!("{transport:<20}");
         for m in &methods {
-            let cell = per_method.get(m.name).map(|t| (m.recover)(t).label());
+            let cell = per_method
+                .get(m.name)
+                .map(|t| refine(m.name, t, (m.recover)(t)).label());
             print!("{:<9}", cell.unwrap_or("n/a"));
         }
         println!();
@@ -296,7 +322,10 @@ fn tier0() {
     for (name, tf) in transports() {
         print_row(
             name.to_string(),
-            methods.iter().map(|m| (m.recover)(&tf(&m.embedded))),
+            methods.iter().map(|m| {
+                let t = tf(&m.embedded);
+                refine(m.name, &t, (m.recover)(&t))
+            }),
         );
     }
 
@@ -307,9 +336,10 @@ fn tier0() {
     for pct in [0u32, 5, 10, 20, 30, 50] {
         print_row(
             format!("drop-{pct}%"),
-            methods
-                .iter()
-                .map(|m| (m.recover)(&drop_carrier(&m.embedded, pct))),
+            methods.iter().map(|m| {
+                let t = drop_carrier(&m.embedded, pct);
+                refine(m.name, &t, (m.recover)(&t))
+            }),
         );
     }
 
@@ -320,9 +350,10 @@ fn tier0() {
     for keep in [0usize, 16, 50, 100, 300, 1200] {
         print_row(
             format!("keep-{keep}"),
-            methods
-                .iter()
-                .map(|m| (m.recover)(&truncate_after_host(&m.embedded, keep))),
+            methods.iter().map(|m| {
+                let t = truncate_after_host(&m.embedded, keep);
+                refine(m.name, &t, (m.recover)(&t))
+            }),
         );
     }
 }
