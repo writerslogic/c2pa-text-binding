@@ -37,6 +37,9 @@ pub mod simhash;
 pub mod soft_binding;
 pub mod stego;
 pub mod structure;
+pub mod tag;
+pub mod vs;
+pub mod zwbin;
 
 #[cfg(target_arch = "wasm32")]
 mod wasm;
