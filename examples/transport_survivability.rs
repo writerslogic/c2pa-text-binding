@@ -30,6 +30,7 @@
 use c2pa_text_binding::normalize::is_zero_width_format;
 use c2pa_text_binding::simhash::Fingerprint;
 use c2pa_text_binding::{stego, tag, vs, zwbin};
+use std::collections::BTreeMap;
 use unicode_normalization::UnicodeNormalization;
 
 const KEY: &[u8] = b"transport-survivability-fixed-key";
@@ -240,7 +241,52 @@ fn header(methods: &[Method], title: &str) {
     println!("{}", "-".repeat(20 + 9 * methods.len()));
 }
 
+/// Emit each method's embedded text as JSON for an external transport driver.
+fn emit() {
+    let map: BTreeMap<&str, String> = methods()
+        .into_iter()
+        .map(|m| (m.name, m.embedded))
+        .collect();
+    println!(
+        "{}",
+        serde_json::to_string(&map).expect("serialize vectors")
+    );
+}
+
+/// Classify a `{transport: {method: transformed_text}}` results file produced
+/// by a real-transport driver, and print the matrix.
+fn classify_file(path: &str) {
+    let raw = std::fs::read_to_string(path).expect("read results file");
+    let results: BTreeMap<String, BTreeMap<String, String>> =
+        serde_json::from_str(&raw).expect("parse results json");
+    let methods = methods();
+
+    print!("{:<20}", "");
+    for m in &methods {
+        print!("{:<9}", m.name);
+    }
+    println!();
+    println!("{}", "-".repeat(20 + 9 * methods.len()));
+    for (transport, per_method) in &results {
+        print!("{transport:<20}");
+        for m in &methods {
+            let cell = per_method.get(m.name).map(|t| (m.recover)(t).label());
+            print!("{:<9}", cell.unwrap_or("n/a"));
+        }
+        println!();
+    }
+}
+
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    match args.get(1).map(String::as_str) {
+        Some("emit") => emit(),
+        Some("classify") => classify_file(args.get(2).expect("usage: classify <file>")),
+        _ => tier0(),
+    }
+}
+
+fn tier0() {
     let methods = methods();
 
     header(

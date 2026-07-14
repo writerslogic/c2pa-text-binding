@@ -89,6 +89,21 @@ keep-300            intact   safe     intact   intact   intact   safe     intact
 keep-1200           intact   intact   intact   intact   intact   intact   intact
 ```
 
+### Tier 1 — real transports
+
+Production libraries and system tools applied as-is, via
+`harness/.venv/bin/python harness/tier1.py`:
+
+```
+                    v1ref    v1inl    v2ref    zwc      tag      zwbin    simhash
+bleach-sanitize     intact   intact   intact   intact   intact   intact   intact
+nh3-sanitize        intact   intact   intact   intact   intact   intact   intact
+pandoc-md-html-md   intact   intact   intact   intact   intact   intact   intact
+textutil-rtf        intact   intact   intact   intact   intact   intact   intact
+ftfy-fix-text       gone     gone     gone     intact   intact   intact   intact
+iconv-ascii-translit gone    gone     gone     gone     gone     gone     intact
+```
+
 ## Findings
 
 1. **Unicode normalization is not the threat.** All four normal forms preserve
@@ -130,14 +145,24 @@ keep-1200           intact   intact   intact   intact   intact   intact   intact
    carrier is only fail-safe (`keep-100`), supporting a reference-preferred design
    — provided finding 4 is respected.
 
+8. **Standard HTML sanitizers do not remove invisible payloads (Tier 1).** Mozilla
+   `bleach` and `nh3` (ammonia), and real document round trips through `pandoc`
+   (Markdown/HTML) and macOS `textutil` (RTF), all pass every carrier through
+   **intact** — they target markup, not invisible code points. This overturns the
+   Tier 0 assumption that sanitization strips these carriers: the measured threats
+   to the variation-selector carrier are text-repair tools (`ftfy`, which removes
+   variation selectors) and encoding transcode (`iconv` to ASCII, which drops all
+   non-ASCII). It is also a security result — an invisible payload survives the
+   sanitizers commonly relied on to clean untrusted text.
+
 ## Limitations
 
-- These are deterministic codec-level probes, not measurements of real
-  applications. The categorical transports model what a pipeline *might* do; they
-  do not prove any specific product does it. Tier 1 (real HTML sanitizer
-  libraries, platform APIs, and headless web clients) and Tier 2 (native
-  desktop and messaging apps) reuse these same methods and classifier over real
-  transports and are required for external validity.
+- The categorical and dose views are deterministic codec-level probes, not
+  measurements of real applications; they model what a pipeline *might* do. Tier 1
+  covers real HTML sanitizer libraries and system document tools (above); platform
+  APIs and headless web clients, and Tier 2 native desktop and messaging apps,
+  remain to be added — they reuse the same methods and classifier and are needed
+  for full external validity.
 - The partial-loss model drops code points independently and uniformly; real
   losses are often structured (whole-run stripping, boundary effects).
 - `tag` and `zwbin` are included as comparison methods, not recommended carriers;
