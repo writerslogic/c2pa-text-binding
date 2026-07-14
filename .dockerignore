@@ -1,0 +1,6 @@
+.git
+target
+pkg
+harness/.venv
+**/*.pyc
+__pycache__

@@ -210,7 +210,25 @@ def build_transports():
     return transports, skipped
 
 
+def stamp_environment():
+    import platform
+
+    print(f"# environment: {platform.platform()}", file=sys.stderr)
+    for tool in ("iconv", "pandoc", "tidy", "textutil"):
+        state = "present" if shutil.which(tool) else "absent"
+        print(f"#   tool {tool}: {state}", file=sys.stderr)
+    for mod in ("bleach", "nh3", "ftfy", "html2text", "markdown", "docx", "lxml"):
+        try:
+            print(
+                f"#   lib {mod}: {getattr(__import__(mod), '__version__', '?')}",
+                file=sys.stderr,
+            )
+        except ImportError:
+            print(f"#   lib {mod}: absent", file=sys.stderr)
+
+
 def main():
+    stamp_environment()
     vectors = emit_vectors()
     transports, skipped = build_transports()
 
