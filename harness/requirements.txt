@@ -10,3 +10,5 @@ Markdown==3.10.2
 python-docx==1.2.0
 lxml==6.1.1
 requests==2.34.2
+# Encypher's A.8 reference library, for cross-implementation interop (harness/interop.py).
+c2pa-text==3.0.0
