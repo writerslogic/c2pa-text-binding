@@ -184,6 +184,38 @@ validates. The manifest is recoverable and useless. Only the fingerprint
     (`stego`'s HMAC is the exception) can detect a mutated payload. A checksum, not
     only a length, is required for fail-safety.
 
+## Aggregate robustness (over corpus)
+
+Survival aggregated over a corpus of host texts (English, CJK, Arabic/RTL, emoji,
+legitimate variation sequences, irregular whitespace) crossed with a payload
+population, with a Wilson 95% interval, plus loss tolerance (the largest
+carrier-loss budget at which at least half of corpus cells still recover):
+
+```
+method    survival   95% CI            loss-tol
+vs-v1     56%        [48%, 62%]        0%
+vs-v2     56%        [48%, 62%]        0%
+zwc       89%        [72%, 96%]        40%
+tag       78%        [71%, 83%]        0%
+zwbin     89%        [84%, 93%]        0%
+simhash   100%       [98%, 100%]       50%
+```
+
+The loss-tolerance column separates the error-corrected methods (`zwc` 40%,
+`simhash` 50%) from every un-coded carrier (0%). Structured-loss and multi-hop
+composition views (in the example output) show that erasure coding is
+count-based — burst and scattered loss behave the same for `zwc` — while a single
+lossy hop in a composed journey kills an un-coded carrier.
+
+## Cross-implementation interoperability
+
+This crate's A.8 codec is byte-identical to Encypher's `c2pa-text` reference
+library (the method's originator) in both directions: this crate's decoder reads
+`c2pa_text.encode_wrapper` output, and this crate's encoder produces its exact
+bytes, for the same `C2PATXT\0` magic, version 1, and `U+FEFF` marker
+(`tests/interop.rs`; regenerate the golden vector with `harness/interop.py`).
+The comparison above is therefore against the real deployed format.
+
 ## Limitations
 
 - The categorical and dose views are deterministic codec-level probes, not

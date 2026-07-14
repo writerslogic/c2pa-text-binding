@@ -27,7 +27,7 @@ This crate is the **perceptual/watermark recovery layer**. It is distinct from t
 
 ```toml
 [dependencies]
-c2pa-text-binding = "0.1"
+c2pa-text-binding = "0.2"
 ```
 
 ### Emit and sign a `c2pa.soft-binding` assertion
@@ -71,6 +71,21 @@ assert_eq!(tier, Confidence::Bound);
 ### Register with the Soft Binding Resolution API
 
 These algorithms are registered in the [C2PA soft binding algorithm list](https://github.com/c2pa-org/softbinding-algorithm-list), so a `c2pa.soft-binding` assertion referencing them can drive [decentralized manifest recovery](https://spec.c2pa.org/).
+
+## Transport Survivability Research
+
+The soft-binding layer above exists because *hard* bindings are fragile in text pipelines. [`TRANSPORT.md`](TRANSPORT.md) is a reproducible benchmark quantifying that fragility, comparing every invisible-text carrier — A.8 variation selectors (v1 and a proposed v2), the zero-width Reed-Solomon watermark, Unicode Tag smuggling, naive zero-width binary — against the fingerprint recovery layer, across deterministic probes and real transports (HTML sanitizers, Office, email, Markdown, `pandoc`, macOS RTF).
+
+Key results, all reproducible with `cargo run --release --example transport_survivability` and `harness/tier1.py`:
+
+- **Carrier survival is not provenance survival.** Email, Markdown, and `pandoc` round trips leave the invisible carrier intact but reflow the visible text, breaking the A.8 hard binding. Only the reflow-tolerant fingerprint survives.
+- **A.8 needs a checksum, not just a length.** Property testing shows the v1 length field is self-corruptible — a single dropped length byte yields a wrong payload. Only an integrity field (this crate's HMAC watermark, or a v2 checksum) fails safe.
+- **Error correction is decisive.** The Reed-Solomon watermark tolerates ~30–40% code-point loss where every un-coded carrier fails by 20%.
+- **Sanitizers preserve invisible payloads.** Ten of thirteen real pipelines — including `bleach` and `nh3` — pass the payload through untouched; a security-relevant result.
+
+**Interoperability.** This crate's A.8 codec is byte-identical to Encypher's [`c2pa-text`](https://pypi.org/project/c2pa-text/) reference library in both directions (`tests/interop.rs`, `harness/interop.py`), so the comparison is against the real deployed format, not a stand-in.
+
+Runs are reproducible via a pinned venv (`harness/requirements.txt`) or the [`Dockerfile`](Dockerfile), which stamps tool and library versions with every result.
 
 ## Related Crates
 
