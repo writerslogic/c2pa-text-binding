@@ -73,15 +73,24 @@ fn op_strategy() -> impl Strategy<Value = Vec<Op>> {
 }
 
 proptest! {
-    /// A.8 v1's length field makes drop and truncation fail-safe: whatever
-    /// survives, `extract` never yields a payload other than the embedded one.
+    /// A.8 v1's length field makes *tail truncation* fail-safe: a shortened run
+    /// no longer satisfies the declared length, so `extract` rejects rather than
+    /// return a wrong payload.
+    ///
+    /// Property testing disproved the stronger claim (drop-safety in general): an
+    /// interior drop landing in the 4-byte length field can shrink the declared
+    /// length so the shortened run still satisfies it, yielding a wrong payload.
+    /// The length field is not self-protecting — see the characterizations below;
+    /// A.8 needs a checksum, not just a length.
     #[test]
-    fn vs_v1_drop_truncate_never_wrong(
+    fn vs_v1_tail_truncation_is_fail_safe(
         payload in prop::collection::vec(any::<u8>(), 1..200),
-        ops in op_strategy(),
+        cut in 0usize..400,
     ) {
-        let mangled = apply(&vs::embed("", &payload), &ops, false);
-        if let vs::Decoded::Payload(p) = vs::extract(&mangled) {
+        let full = vs::embed("", &payload);
+        let keep = full.chars().count().saturating_sub(cut);
+        let truncated: String = full.chars().take(keep).collect();
+        if let vs::Decoded::Payload(p) = vs::extract(&truncated) {
             prop_assert_eq!(p, payload.clone());
         }
     }
@@ -126,5 +135,24 @@ fn v1_without_integrity_returns_wrong_payload_under_modification() {
             )
         }
         other => panic!("expected a wrong-payload (UNSAFE) decode, got {other:?}"),
+    }
+}
+
+/// Characterization of the case property testing found: the run layout is
+/// `[FEFF][magic x8][version][length x4][payload]`, so dropping the low length
+/// byte shifts a zero payload byte into the length field. The declared length
+/// becomes 0 and `extract` returns an empty (wrong) payload — the length field
+/// does not protect itself, reinforcing the need for a checksum.
+#[test]
+fn v1_length_field_drop_yields_wrong_payload() {
+    let payload = vec![0u8; 40];
+    let mut chars: Vec<char> = vs::embed("", &payload).chars().collect();
+    chars.remove(13); // low byte of the big-endian length field
+    let mangled: String = chars.into_iter().collect();
+    match vs::extract(&mangled) {
+        vs::Decoded::Payload(p) => {
+            assert_ne!(p, payload, "length-field drop returned a wrong payload")
+        }
+        other => panic!("expected an UNSAFE decode from length corruption, got {other:?}"),
     }
 }
