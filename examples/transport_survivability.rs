@@ -241,6 +241,32 @@ fn drop_carrier(text: &str, pct: u32) -> String {
         .collect()
 }
 
+/// Remove a single contiguous burst of `pct`% of the carrier code points.
+/// Error-correcting codes tolerate scattered loss but not a burst that wipes
+/// consecutive shards, so this is where the Reed-Solomon advantage inverts.
+fn burst_loss(text: &str, pct: u32) -> String {
+    let positions: Vec<usize> = text
+        .chars()
+        .enumerate()
+        .filter(|(_, c)| is_carrier_cp(*c))
+        .map(|(i, _)| i)
+        .collect();
+    if positions.is_empty() {
+        return text.to_string();
+    }
+    let n = (positions.len() as u64 * pct as u64 / 100) as usize;
+    let start = positions.len() / 4; // deterministic burst location
+    let drop: std::collections::HashSet<usize> = positions[start..(start + n).min(positions.len())]
+        .iter()
+        .copied()
+        .collect();
+    text.chars()
+        .enumerate()
+        .filter(|(i, _)| !drop.contains(i))
+        .map(|(_, c)| c)
+        .collect()
+}
+
 /// Keep the host plus `keep` trailing carrier code points.
 fn truncate_after_host(text: &str, keep: usize) -> String {
     let host = HOST.chars().count();
@@ -455,6 +481,47 @@ fn corpus_survival() {
     }
 }
 
+type Hop = Box<dyn Fn(&str) -> String>;
+
+fn hop<F: Fn(&str) -> String + 'static>(f: F) -> Hop {
+    Box::new(f)
+}
+
+/// Named multi-hop journeys. Content rarely crosses a single transport; survival
+/// compounds, and one lossy hop kills the whole chain.
+fn journeys() -> Vec<(&'static str, Vec<Hop>)> {
+    vec![
+        (
+            "nfc>nfkc",
+            vec![hop(|s| s.nfc().collect()), hop(|s| s.nfkc().collect())],
+        ),
+        (
+            "relay: 3x drop5%",
+            vec![
+                hop(|s| drop_carrier(s, 5)),
+                hop(|s| drop_carrier(s, 5)),
+                hop(|s| drop_carrier(s, 5)),
+            ],
+        ),
+        (
+            "edit: d8>nfkc>d8",
+            vec![
+                hop(|s| drop_carrier(s, 8)),
+                hop(|s| s.nfkc().collect()),
+                hop(|s| drop_carrier(s, 8)),
+            ],
+        ),
+        (
+            "web>bom-strip>nfc",
+            vec![
+                hop(|s| s.nfc().collect()),
+                hop(|s| s.chars().filter(|&c| c != '\u{FEFF}').collect()),
+                hop(|s| s.nfc().collect()),
+            ],
+        ),
+    ]
+}
+
 fn tier0() {
     let methods = methods();
 
@@ -495,6 +562,41 @@ fn tier0() {
             format!("keep-{keep}"),
             methods.iter().map(|m| {
                 let t = truncate_after_host(&m.embedded, keep);
+                refine(m.name, &t, (m.recover)(&t))
+            }),
+        );
+    }
+
+    header(
+        &methods,
+        "== loss structure at a fixed carrier-loss budget: scattered vs burst ==",
+    );
+    for (label, kind) in [
+        ("scattered-15%", 0u8),
+        ("burst-15%", 1),
+        ("scattered-25%", 2),
+        ("burst-25%", 3),
+    ] {
+        print_row(
+            label.to_string(),
+            methods.iter().map(|m| {
+                let t = match kind {
+                    0 => drop_carrier(&m.embedded, 15),
+                    1 => burst_loss(&m.embedded, 15),
+                    2 => drop_carrier(&m.embedded, 25),
+                    _ => burst_loss(&m.embedded, 25),
+                };
+                refine(m.name, &t, (m.recover)(&t))
+            }),
+        );
+    }
+
+    header(&methods, "== multi-hop journeys (composed transports) ==");
+    for (label, hops) in journeys() {
+        print_row(
+            label.to_string(),
+            methods.iter().map(|m| {
+                let t = hops.iter().fold(m.embedded.clone(), |acc, f| f(&acc));
                 refine(m.name, &t, (m.recover)(&t))
             }),
         );
