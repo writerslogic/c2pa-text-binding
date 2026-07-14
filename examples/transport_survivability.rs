@@ -481,6 +481,81 @@ fn corpus_survival() {
     }
 }
 
+/// 95% Wilson score interval for a binomial survival proportion.
+fn wilson95(intact: u32, total: u32) -> (f64, f64, f64) {
+    if total == 0 {
+        return (0.0, 0.0, 0.0);
+    }
+    let n = total as f64;
+    let p = intact as f64 / n;
+    let z = 1.96;
+    let denom = 1.0 + z * z / n;
+    let center = (p + z * z / (2.0 * n)) / denom;
+    let margin = z * (p * (1.0 - p) / n + z * z / (4.0 * n * n)).sqrt() / denom;
+    (p, (center - margin).max(0.0), (center + margin).min(1.0))
+}
+
+/// Aggregate robustness per method over the corpus: survival rate across the
+/// categorical transports (with a Wilson 95% CI) and loss tolerance (the largest
+/// carrier-loss budget at which at least half of corpus cells still recover).
+fn robustness_summary() {
+    let hosts = corpus_hosts();
+    let payloads = corpus_payloads();
+    let methods = corpus_methods();
+    let ts = transports();
+
+    println!("\n== robustness summary over corpus (categorical survival; loss tolerance) ==");
+    println!(
+        "{:<10}{:<11}{:<18}{:<10}",
+        "method", "survival", "95% CI", "loss-tol"
+    );
+    println!("{}", "-".repeat(49));
+    for m in &methods {
+        let (mut intact, mut total) = (0u32, 0u32);
+        for (_, tf) in &ts {
+            for h in &hosts {
+                for p in &payloads {
+                    if let Some(e) = (m.embed)(h, p) {
+                        total += 1;
+                        if (m.recover)(&tf(&e), h, p) == Outcome::Intact {
+                            intact += 1;
+                        }
+                    }
+                }
+            }
+        }
+        let (rate, lo, hi) = wilson95(intact, total);
+
+        let mut tol = 0u32;
+        for pct in [0u32, 5, 10, 15, 20, 25, 30, 40, 50] {
+            let (mut i2, mut t2) = (0u32, 0u32);
+            for h in &hosts {
+                for p in &payloads {
+                    if let Some(e) = (m.embed)(h, p) {
+                        t2 += 1;
+                        if (m.recover)(&drop_carrier(&e, pct), h, p) == Outcome::Intact {
+                            i2 += 1;
+                        }
+                    }
+                }
+            }
+            if t2 > 0 && i2 as f64 / t2 as f64 >= 0.5 {
+                tol = pct;
+            } else {
+                break;
+            }
+        }
+
+        println!(
+            "{:<10}{:<11}{:<18}{:<10}",
+            m.name,
+            format!("{:.0}%", rate * 100.0),
+            format!("[{:.0}%, {:.0}%]", lo * 100.0, hi * 100.0),
+            format!("{tol}%"),
+        );
+    }
+}
+
 type Hop = Box<dyn Fn(&str) -> String>;
 
 fn hop<F: Fn(&str) -> String + 'static>(f: F) -> Hop {
@@ -603,4 +678,5 @@ fn tier0() {
     }
 
     corpus_survival();
+    robustness_summary();
 }
