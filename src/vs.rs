@@ -13,18 +13,23 @@
 //! recovered payload but whether a mangled carrier fails *safe* (rejected) or
 //! *unsafe* (decodes to the wrong bytes).
 
+use sha2::{Digest, Sha256};
+
 /// Wrapper identifier, `"C2PATXT\0"`.
 pub const MAGIC: [u8; 8] = *b"C2PATXT\0";
 /// Wrapper format version defined by A.8.
 pub const VERSION: u8 = 1;
-/// Proposed self-delimiting version (reference/inline payload, no length
-/// field). Carried here so the benchmark can measure it against v1.
+/// Version 2 adds a truncated-SHA-256 integrity checksum over the header and
+/// payload, so a corrupted wrapper fails safe (rejected) rather than decoding to
+/// a wrong payload. The frame is otherwise identical to v1.
 pub const VERSION_V2: u8 = 2;
 /// Zero-Width No-Break Space that marks the start of a wrapper.
 pub const MARKER: char = '\u{FEFF}';
 
 /// Header length: `magic` (8) + `version` (1) + big-endian `length` (4).
 const HEADER: usize = 13;
+/// Trailing integrity checksum length for v2 (truncated SHA-256).
+const CHECKSUM_LEN: usize = 4;
 
 /// Map a byte to its variation selector (A.8 `byteToVariationSelector`).
 pub fn byte_to_vs(b: u8) -> char {
@@ -70,15 +75,16 @@ pub fn encode(payload: &[u8]) -> String {
     carry(&bytes)
 }
 
-/// Encode `payload` as a self-delimiting v2 wrapper: `magic + version 2 +
-/// payload_type + payload`, with no length field. The run self-delimits at the
-/// first non-selector code point.
-pub fn encode_v2(payload: &[u8], payload_type: u8) -> String {
-    let mut bytes = Vec::with_capacity(10 + payload.len());
+/// Encode `payload` as a v2 wrapper: the v1 frame (`magic + version 2 + length +
+/// payload`) followed by a truncated SHA-256 checksum over those bytes.
+pub fn encode_v2(payload: &[u8]) -> String {
+    let mut bytes = Vec::with_capacity(HEADER + payload.len() + CHECKSUM_LEN);
     bytes.extend_from_slice(&MAGIC);
     bytes.push(VERSION_V2);
-    bytes.push(payload_type);
+    bytes.extend_from_slice(&(payload.len() as u32).to_be_bytes());
     bytes.extend_from_slice(payload);
+    let checksum = Sha256::digest(&bytes);
+    bytes.extend_from_slice(&checksum[..CHECKSUM_LEN]);
     carry(&bytes)
 }
 
@@ -92,10 +98,10 @@ pub fn embed(text: &str, payload: &[u8]) -> String {
 }
 
 /// Append a v2 wrapper carrying `payload` to the end of `text`.
-pub fn embed_v2(text: &str, payload: &[u8], payload_type: u8) -> String {
-    let mut s = String::with_capacity(text.len() + 4 * (10 + payload.len()) + 3);
+pub fn embed_v2(text: &str, payload: &[u8]) -> String {
+    let mut s = String::with_capacity(text.len() + 4 * (HEADER + payload.len() + CHECKSUM_LEN) + 3);
     s.push_str(text);
-    s.push_str(&encode_v2(payload, payload_type));
+    s.push_str(&encode_v2(payload));
     s
 }
 
@@ -149,7 +155,16 @@ pub fn extract(text: &str) -> Decoded {
                         return Decoded::Payload(run[HEADER..HEADER + len].to_vec());
                     }
                 }
-                VERSION_V2 if run.len() >= 10 => return Decoded::Payload(run[10..].to_vec()),
+                VERSION_V2 if run.len() >= HEADER => {
+                    let len = u32::from_be_bytes([run[9], run[10], run[11], run[12]]) as usize;
+                    let end = HEADER + len;
+                    if run.len() >= end + CHECKSUM_LEN {
+                        let expected = Sha256::digest(&run[..end]);
+                        if run[end..end + CHECKSUM_LEN] == expected[..CHECKSUM_LEN] {
+                            return Decoded::Payload(run[HEADER..end].to_vec());
+                        }
+                    }
+                }
                 _ => {}
             }
         }
@@ -222,10 +237,24 @@ mod tests {
     }
 
     #[test]
-    fn v2_round_trips_and_is_shorter_than_v1() {
+    fn v2_round_trips_with_checksum() {
         let payload = b"https://fabrikam.com/m/a1b2c3.c2pa";
-        let v2 = embed_v2("Doc.", payload, 0);
-        assert_eq!(extract(&v2), Decoded::Payload(payload.to_vec()));
-        assert!(encode_v2(payload, 0).chars().count() < encode(payload).chars().count());
+        assert_eq!(
+            extract(&embed_v2("Doc.", payload)),
+            Decoded::Payload(payload.to_vec())
+        );
+    }
+
+    #[test]
+    fn v2_checksum_rejects_corruption_fail_safe() {
+        // Corrupt a payload code point: the checksum no longer matches, so extract
+        // rejects rather than returning a wrong payload (unlike v1).
+        let payload = b"AAAAAAAAAAAAAAAA".to_vec();
+        let mut chars: Vec<char> = encode_v2(&payload).chars().collect();
+        let i = 1 + MAGIC.len() + 1 + 4 + 2; // marker + magic + version + length, into payload
+        let b = vs_to_byte(chars[i]).expect("payload code point");
+        chars[i] = byte_to_vs(b ^ 0xFF);
+        let mangled: String = chars.into_iter().collect();
+        assert_eq!(extract(&mangled), Decoded::Corrupt);
     }
 }

@@ -13,7 +13,7 @@
 //!
 //! Columns:
 //!   v1ref/v1inl  A.8 variation selectors (v1), reference- and inline-size
-//!   v2ref        proposed self-delimiting A.8 (v2), reference-size
+//!   v2ref        proposed A.8 v2 (adds a truncated-SHA-256 integrity checksum)
 //!   zwc          zero-width watermark with Reed-Solomon coding (`stego`)
 //!   tag          Unicode Tags "ASCII smuggling" carrier
 //!   zwbin        naive zero-width binary, no error correction
@@ -165,7 +165,7 @@ fn methods() -> Vec<Method> {
     });
     v.push(Method {
         name: "v2ref",
-        embedded: vs::embed_v2(HOST, REFERENCE, 0),
+        embedded: vs::embed_v2(HOST, REFERENCE),
         recover: Box::new(|t| vs_outcome(vs::extract(t), REFERENCE)),
     });
     if let Ok(embedded) = stego::embed(HOST, KEY, ZWC_POINTER) {
@@ -351,7 +351,7 @@ fn cm_v1_embed(h: &str, p: &[u8]) -> Option<String> {
     Some(vs::embed(h, p))
 }
 fn cm_v2_embed(h: &str, p: &[u8]) -> Option<String> {
-    Some(vs::embed_v2(h, p, 0))
+    Some(vs::embed_v2(h, p))
 }
 fn cm_vs_recover(t: &str, _h: &str, p: &[u8]) -> Outcome {
     vs_outcome(vs::extract(t), p)

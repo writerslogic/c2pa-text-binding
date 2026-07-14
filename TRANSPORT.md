@@ -30,7 +30,7 @@ Methods:
 | column | carrier |
 |---|---|
 | `v1ref`, `v1inl` | A.8 variation selectors (v1), reference-size (42 B) and inline-size (1 KB) |
-| `v2ref` | proposed self-delimiting A.8 (v2, no length field), reference-size |
+| `v2ref` | proposed A.8 v2 (adds a truncated-SHA-256 integrity checksum), reference-size |
 | `zwc` | zero-width watermark with Reed-Solomon coding (`stego`) |
 | `tag` | Unicode Tags "ASCII smuggling" carrier |
 | `zwbin` | naive zero-width binary, no error correction |
@@ -70,8 +70,8 @@ strip-tags          intact   intact   intact   intact   gone     intact   intact
 ```
                     v1ref    v1inl    v2ref    zwc      tag      zwbin    simhash
 drop-0%             intact   intact   intact   intact   intact   intact   intact
-drop-5%             safe     safe     UNSAFE   intact   safe     safe     intact
-drop-10%            safe     safe     UNSAFE   intact   UNSAFE   safe     intact
+drop-5%             safe     safe     safe     intact   safe     safe     intact
+drop-10%            safe     safe     safe     intact   UNSAFE   safe     intact
 drop-20%            gone     gone     gone     intact   safe     safe     intact
 drop-30%            gone     gone     gone     intact   safe     safe     intact
 drop-50%            gone     gone     gone     gone     safe     safe     intact
@@ -82,8 +82,8 @@ drop-50%            gone     gone     gone     gone     safe     safe     intact
 ```
                     v1ref    v1inl    v2ref    zwc      tag      zwbin    simhash
 keep-0              gone     gone     gone     gone     gone     gone     intact
-keep-16             safe     safe     UNSAFE   gone     UNSAFE   safe     intact
-keep-50             safe     safe     UNSAFE   gone     UNSAFE   safe     intact
+keep-16             safe     safe     safe     gone     UNSAFE   safe     intact
+keep-50             safe     safe     safe     gone     UNSAFE   safe     intact
 keep-100            intact   safe     intact   gone     intact   safe     intact
 keep-300            intact   safe     intact   intact   intact   safe     intact
 keep-1200           intact   intact   intact   intact   intact   intact   intact
@@ -132,15 +132,16 @@ validates. The manifest is recoverable and useless. Only the fingerprint
    carrier is `gone` or `UNSAFE` by 20%. This is the single largest survivability
    difference in the table, and it is a property of the coding, not the alphabet.
 
-4. **Dropping the length field regresses fail-safety.** The proposed
-   self-delimiting v2 frame and the `tag` carrier both fail **UNSAFE** under
-   partial loss and truncation: with no length field and a payload that is not
-   internally length-delimited (a bare reference), a truncated run decodes to a
-   shorter wrong payload instead of being rejected. The A.8 v1 length field is
-   exactly what turns those cases into `safe`. **Structural exclusion fixes the
-   hash circular dependency, but the wrapper still needs a length or checksum to
-   detect truncation** — the self-delimiting simplification must not be applied to
-   reference-mode payloads without one.
+4. **A checksum, not just a length, is what makes the wrapper fail-safe.** An
+   earlier self-delimiting v2 idea (no length field) failed **UNSAFE** under
+   truncation, and property testing showed even the v1 length field is
+   self-corruptible — a dropped length byte yields a wrong payload. The `tag`
+   carrier fails the same way. The fix is integrity: **v2 now carries a truncated
+   SHA-256 checksum over the header and payload**, so any corruption is detected
+   and rejected. In the dose sweep above, `v2ref` reads `safe` rather than
+   `UNSAFE`; only carriers with no integrity field (`v1`, `tag`, `zwbin`) can
+   still decode to a wrong payload, and only `stego` (HMAC) and `v2` (checksum)
+   are fail-safe under mutation.
 
 5. **Aggressive invisible-character sanitization is a hard ceiling.** A filter
    that removes zero-width formatting characters takes out the variation-selector,

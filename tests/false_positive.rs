@@ -42,7 +42,7 @@ fn carriers_do_not_confuse_each_other() {
     let payload = b"https://fabrikam.com/m/a1b2c3.c2pa";
 
     let vs_text = vs::embed(host, payload);
-    let vs2_text = vs::embed_v2(host, payload, 0);
+    let vs2_text = vs::embed_v2(host, payload);
     let tag_text = tag::embed(host, payload);
     let zwbin_text = zwbin::embed(host, payload);
 
