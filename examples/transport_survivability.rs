@@ -312,6 +312,149 @@ fn main() {
     }
 }
 
+/// A method expressed for the corpus sweep: embed given (host, payload), and
+/// classify given (transformed, host, payload). `embed` returns `None` when the
+/// host cannot carry the method (e.g. too short for the Reed-Solomon watermark).
+struct CorpusMethod {
+    name: &'static str,
+    embed: fn(&str, &[u8]) -> Option<String>,
+    recover: fn(&str, &str, &[u8]) -> Outcome,
+}
+
+fn cm_v1_embed(h: &str, p: &[u8]) -> Option<String> {
+    Some(vs::embed(h, p))
+}
+fn cm_v2_embed(h: &str, p: &[u8]) -> Option<String> {
+    Some(vs::embed_v2(h, p, 0))
+}
+fn cm_vs_recover(t: &str, _h: &str, p: &[u8]) -> Outcome {
+    vs_outcome(vs::extract(t), p)
+}
+fn cm_tag_embed(h: &str, p: &[u8]) -> Option<String> {
+    Some(tag::embed(h, p))
+}
+fn cm_tag_recover(t: &str, _h: &str, p: &[u8]) -> Outcome {
+    tag_outcome(tag::extract(t), p)
+}
+fn cm_zwbin_embed(h: &str, p: &[u8]) -> Option<String> {
+    Some(zwbin::embed(h, p))
+}
+fn cm_zwbin_recover(t: &str, _h: &str, p: &[u8]) -> Outcome {
+    zwbin_outcome(zwbin::extract(t), p)
+}
+fn cm_zwc_embed(h: &str, _p: &[u8]) -> Option<String> {
+    stego::embed(h, KEY, ZWC_POINTER).ok()
+}
+fn cm_zwc_recover(t: &str, _h: &str, _p: &[u8]) -> Outcome {
+    zwc_outcome(t)
+}
+fn cm_sim_embed(h: &str, _p: &[u8]) -> Option<String> {
+    Some(h.to_string())
+}
+fn cm_sim_recover(t: &str, h: &str, _p: &[u8]) -> Outcome {
+    if Fingerprint::compute(h).matches(&Fingerprint::compute(t).whole) {
+        Outcome::Intact
+    } else {
+        Outcome::Gone
+    }
+}
+
+fn corpus_methods() -> Vec<CorpusMethod> {
+    vec![
+        CorpusMethod {
+            name: "vs-v1",
+            embed: cm_v1_embed,
+            recover: cm_vs_recover,
+        },
+        CorpusMethod {
+            name: "vs-v2",
+            embed: cm_v2_embed,
+            recover: cm_vs_recover,
+        },
+        CorpusMethod {
+            name: "zwc",
+            embed: cm_zwc_embed,
+            recover: cm_zwc_recover,
+        },
+        CorpusMethod {
+            name: "tag",
+            embed: cm_tag_embed,
+            recover: cm_tag_recover,
+        },
+        CorpusMethod {
+            name: "zwbin",
+            embed: cm_zwbin_embed,
+            recover: cm_zwbin_recover,
+        },
+        CorpusMethod {
+            name: "simhash",
+            embed: cm_sim_embed,
+            recover: cm_sim_recover,
+        },
+    ]
+}
+
+/// Host texts spanning length, script, direction, emoji, legitimate variation
+/// selectors, and irregular whitespace.
+fn corpus_hosts() -> Vec<&'static str> {
+    vec![
+        "Short note: the quick brown fox jumps over the lazy dog by the riverbank.",
+        HOST,
+        "\u{6587}\u{7AE0}\u{306E}\u{6765}\u{6B74}\u{306F}\u{3001}\u{5185}\u{5BB9}\u{304C}\u{30B3}\u{30D4}\u{30FC}\u{3055}\u{308C}\u{518D}\u{30D5}\u{30A9}\u{30FC}\u{30DE}\u{30C3}\u{30C8}\u{3055}\u{308C}\u{8EFD}\u{304F}\u{7DE8}\u{96C6}\u{3055}\u{308C}\u{305F}\u{5F8C}\u{3067}\u{3082}\u{56DE}\u{5FA9}\u{3067}\u{304D}\u{308B}\u{5FC5}\u{8981}\u{304C}\u{3042}\u{308B}\u{3002}",
+        "\u{064A}\u{062C}\u{0628} \u{0623}\u{0646} \u{064A}\u{0643}\u{0648}\u{0646} \u{0645}\u{0646} \u{0627}\u{0644}\u{0645}\u{0645}\u{0643}\u{0646} \u{0627}\u{0633}\u{062A}\u{0639}\u{0627}\u{062F}\u{0629} \u{0623}\u{0635}\u{0644} \u{0627}\u{0644}\u{0645}\u{0633}\u{062A}\u{0646}\u{062F} \u{062D}\u{062A}\u{0649} \u{0628}\u{0639}\u{062F} \u{0646}\u{0633}\u{062E}\u{0647} \u{0648}\u{062A}\u{062D}\u{0631}\u{064A}\u{0631}\u{0647}.",
+        "Emoji punctuate this line \u{1F3A8}\u{1F4F7}\u{270D}\u{FE0F} where selectors \u{1F600}\u{1F680}\u{1F512} ride along with the rendered glyphs across the whole passage of text here.",
+        "CJK variation sequences like \u{845B}\u{E0100} and \u{82A6}\u{E0101} appear legitimately in well-formed text and must never be mistaken for an embedded provenance wrapper.",
+        "Whitespace   is    irregular\n\nhere,\twith  tabs and\nnewlines  scattered\n   throughout   the   entire   paragraph   to   exercise   normalization   and   reflow.",
+    ]
+}
+
+fn corpus_payloads() -> Vec<Vec<u8>> {
+    vec![
+        b"https://fabrikam.com/manifests/a1b2c3.c2pa".to_vec(),
+        (0..256u32).map(|i| (i * 31 + 7) as u8).collect(),
+        (0..1024u32).map(|i| (i * 37 + 11) as u8).collect(),
+    ]
+}
+
+/// Per-(method, transport) survival rate over the whole host x payload corpus.
+fn corpus_survival() {
+    let hosts = corpus_hosts();
+    let payloads = corpus_payloads();
+    let methods = corpus_methods();
+    let cells = hosts.len() * payloads.len();
+
+    println!("\n== corpus survival rate (intact / applicable, over {cells} host*payload cells) ==");
+    print!("{:<20}", "");
+    for m in &methods {
+        print!("{:<9}", m.name);
+    }
+    println!();
+    println!("{}", "-".repeat(20 + 9 * methods.len()));
+
+    for (tname, tf) in transports() {
+        print!("{tname:<20}");
+        for m in &methods {
+            let (mut intact, mut total) = (0u32, 0u32);
+            for host in &hosts {
+                for payload in &payloads {
+                    if let Some(embedded) = (m.embed)(host, payload) {
+                        total += 1;
+                        if (m.recover)(&tf(&embedded), host, payload) == Outcome::Intact {
+                            intact += 1;
+                        }
+                    }
+                }
+            }
+            let cell = match (intact * 100).checked_div(total) {
+                Some(pct) => format!("{pct}%"),
+                None => "n/a".to_string(),
+            };
+            print!("{cell:<9}");
+        }
+        println!();
+    }
+}
+
 fn tier0() {
     let methods = methods();
 
@@ -356,4 +499,6 @@ fn tier0() {
             }),
         );
     }
+
+    corpus_survival();
 }
