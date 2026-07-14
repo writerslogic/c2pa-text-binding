@@ -1,0 +1,12 @@
+# Tier 1 transport-survivability harness dependencies.
+# Recreate the venv with:
+#   python3 -m venv harness/.venv
+#   harness/.venv/bin/pip install -r harness/requirements.txt
+bleach
+nh3
+ftfy
+html2text
+markdown
+python-docx
+lxml
+requests

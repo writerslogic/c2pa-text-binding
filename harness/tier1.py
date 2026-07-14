@@ -87,6 +87,68 @@ def textutil_rtf(s):
             return f.read()
 
 
+def json_roundtrip(s):
+    return json.loads(json.dumps(s))
+
+
+def sqlite_roundtrip(s):
+    import sqlite3
+
+    con = sqlite3.connect(":memory:")
+    con.execute("create table t(x text)")
+    con.execute("insert into t values (?)", (s,))
+    (out,) = con.execute("select x from t").fetchone()
+    con.close()
+    return out
+
+
+def email_roundtrip(s):
+    import email
+    import email.policy
+    from email.message import EmailMessage
+
+    m = EmailMessage()
+    m.set_content(s)
+    m2 = email.message_from_bytes(m.as_bytes(), policy=email.policy.default)
+    return m2.get_content()
+
+
+def markdown_pipeline(s):
+    import html2text
+    import markdown
+
+    return html2text.html2text(markdown.markdown(s))
+
+
+def lxml_html_roundtrip(s):
+    import lxml.html
+
+    return lxml.html.fragment_fromstring(f"<p>{s}</p>").text_content()
+
+
+def docx_roundtrip(s):
+    import docx
+
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "a.docx")
+        doc = docx.Document()
+        doc.add_paragraph(s)
+        doc.save(path)
+        return "\n".join(p.text for p in docx.Document(path).paragraphs)
+
+
+def tidy_html(s):
+    import html2text
+
+    p = subprocess.run(
+        ["tidy", "-q", "--show-warnings", "no", "--force-output", "yes"],
+        input=f"<p>{s}</p>",
+        capture_output=True,
+        text=True,
+    )
+    return html2text.html2text(p.stdout)
+
+
 def build_transports():
     transports, skipped = [], []
 
@@ -120,6 +182,30 @@ def build_transports():
         transports.append(("ftfy-fix-text", ftfy.fix_text))
     except ImportError:
         skipped.append("ftfy-fix-text")
+
+    transports.append(("json-roundtrip", json_roundtrip))
+    transports.append(("sqlite-roundtrip", sqlite_roundtrip))
+    transports.append(("email-mime-roundtrip", email_roundtrip))
+
+    for name, fn, mod in [
+        ("markdown-pipeline", markdown_pipeline, "html2text"),
+        ("lxml-html-parse", lxml_html_roundtrip, "lxml.html"),
+        ("docx-roundtrip", docx_roundtrip, "docx"),
+    ]:
+        try:
+            __import__(mod)
+            transports.append((name, fn))
+        except ImportError:
+            skipped.append(name)
+
+    if shutil.which("tidy"):
+        try:
+            __import__("html2text")
+            transports.append(("tidy-html", tidy_html))
+        except ImportError:
+            skipped.append("tidy-html")
+    else:
+        skipped.append("tidy-html")
 
     return transports, skipped
 

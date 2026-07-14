@@ -98,9 +98,16 @@ Production libraries and system tools applied as-is, via
                     v1ref    v1inl    v2ref    zwc      tag      zwbin    simhash
 bleach-sanitize     intact   intact   intact   intact   intact   intact   intact
 nh3-sanitize        intact   intact   intact   intact   intact   intact   intact
+docx-roundtrip      intact   intact   intact   intact   intact   intact   intact
+email-mime-roundtrip intact  intact   intact   intact   intact   intact   intact
+json-roundtrip      intact   intact   intact   intact   intact   intact   intact
+sqlite-roundtrip    intact   intact   intact   intact   intact   intact   intact
+lxml-html-parse     intact   intact   intact   intact   intact   intact   intact
+markdown-pipeline   intact   intact   intact   intact   intact   intact   intact
 pandoc-md-html-md   intact   intact   intact   intact   intact   intact   intact
 textutil-rtf        intact   intact   intact   intact   intact   intact   intact
 ftfy-fix-text       gone     gone     gone     intact   intact   intact   intact
+tidy-html           gone     gone     gone     gone     gone     gone     intact
 iconv-ascii-translit gone    gone     gone     gone     gone     gone     intact
 ```
 
@@ -145,15 +152,16 @@ iconv-ascii-translit gone    gone     gone     gone     gone     gone     intact
    carrier is only fail-safe (`keep-100`), supporting a reference-preferred design
    — provided finding 4 is respected.
 
-8. **Standard HTML sanitizers do not remove invisible payloads (Tier 1).** Mozilla
-   `bleach` and `nh3` (ammonia), and real document round trips through `pandoc`
-   (Markdown/HTML) and macOS `textutil` (RTF), all pass every carrier through
-   **intact** — they target markup, not invisible code points. This overturns the
-   Tier 0 assumption that sanitization strips these carriers: the measured threats
-   to the variation-selector carrier are text-repair tools (`ftfy`, which removes
-   variation selectors) and encoding transcode (`iconv` to ASCII, which drops all
-   non-ASCII). It is also a security result — an invisible payload survives the
-   sanitizers commonly relied on to clean untrusted text.
+8. **Most real pipelines preserve invisible payloads (Tier 1).** Ten of thirteen
+   measured real transports pass every carrier through **intact**: HTML sanitizers
+   (`bleach`, `nh3`), Office `.docx`, email MIME, SQLite, JSON, an HTML parser
+   (`lxml`), a Markdown pipeline, `pandoc`, and macOS `textutil` (RTF). Only three
+   remove the payload — HTML Tidy (full document normalization), `iconv` to ASCII
+   (drops non-ASCII), and `ftfy` (text repair, which strips variation selectors and
+   so hits only the A.8 carrier). This overturns the Tier 0 assumption that
+   sanitization strips these carriers, and it is a security result: an invisible
+   payload survives the sanitizers and data formats commonly relied on to handle
+   untrusted text.
 
 ## Limitations
 
