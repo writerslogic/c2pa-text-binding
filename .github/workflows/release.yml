@@ -128,7 +128,7 @@ jobs:
         run: |
           npm pack --pack-destination "$GITHUB_WORKSPACE" >/dev/null
         working-directory: pkg
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: npm-package
           path: '*.tgz'
@@ -156,7 +156,7 @@ jobs:
           args: --release --out dist
           manylinux: auto
           sccache: 'true'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.platform.runner }}-${{ matrix.platform.target }}
           path: dist/*.whl
@@ -172,7 +172,7 @@ jobs:
         with:
           command: sdist
           args: --out dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sdist
           path: dist/*.tar.gz
