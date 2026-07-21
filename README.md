@@ -91,6 +91,10 @@ Runs are reproducible via a pinned venv (`harness/requirements.txt`) or the [`Do
 | [c2pa-text](https://crates.io/crates/c2pa-text) | Unstructured text embedding via Unicode Variation Selectors |
 | [c2pa-rs](https://crates.io/crates/c2pa) | Official C2PA SDK |
 
+## Security
+
+Found a vulnerability? Please report it privately — see [SECURITY.md](./SECURITY.md).
+
 ## License
 
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT License](LICENSE-MIT) at your option.
