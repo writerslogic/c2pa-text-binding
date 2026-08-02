@@ -53,9 +53,10 @@ fn real_jumbf_payload_round_trips() {
         "box must be self-consistent"
     );
 
-    let text = vs::embed("A document carrying a genuine C2PA manifest.", &payload);
+    let text = vs::embed("A document carrying a genuine C2PA manifest.", &payload).unwrap();
     match vs::extract(&text) {
-        vs::Decoded::Payload(p) => {
+        Ok(w) => {
+            let p = w.payload;
             assert_eq!(p, payload);
             assert_eq!(
                 jumbf_len(&p),

@@ -14,7 +14,7 @@
 //! modification (not just truncation) — so A.8 needs a checksum, not only a
 //! length field.
 
-use c2pa_text_binding::{stego, vs};
+use c2pa_text_binding::{stego, vs, vs_codec};
 use proptest::prelude::*;
 
 const KEY: &[u8] = b"fail-safety-fixed-key-0001";
@@ -51,8 +51,8 @@ fn apply(text: &str, ops: &[Op], allow_remap: bool) -> String {
             }
             Op::Remap(i) if allow_remap => {
                 let i = i % chars.len();
-                if let Some(b) = vs::vs_to_byte(chars[i]) {
-                    chars[i] = vs::byte_to_vs(b.wrapping_add(1));
+                if let Some(b) = vs_codec::vs_to_byte(chars[i]) {
+                    chars[i] = vs_codec::byte_to_vs(b.wrapping_add(1));
                 }
             }
             Op::Remap(_) => {}
@@ -87,11 +87,11 @@ proptest! {
         payload in prop::collection::vec(any::<u8>(), 1..200),
         cut in 0usize..400,
     ) {
-        let full = vs::embed("", &payload);
+        let full = vs::embed("", &payload).unwrap();
         let keep = full.chars().count().saturating_sub(cut);
         let truncated: String = full.chars().take(keep).collect();
-        if let vs::Decoded::Payload(p) = vs::extract(&truncated) {
-            prop_assert_eq!(p, payload.clone());
+        if let Ok(w) = vs::extract(&truncated) {
+            prop_assert_eq!(w.payload, payload.clone());
         }
     }
 
@@ -122,15 +122,15 @@ proptest! {
 #[test]
 fn v1_without_integrity_returns_wrong_payload_under_modification() {
     let payload = b"AAAAAAAA".to_vec();
-    let mut chars: Vec<char> = vs::embed("", &payload).chars().collect();
+    let mut chars: Vec<char> = vs::embed("", &payload).unwrap().chars().collect();
     let last = chars.len() - 1;
-    let b = vs::vs_to_byte(chars[last]).expect("last char is a variation selector");
-    chars[last] = vs::byte_to_vs(b ^ 0xFF);
+    let b = vs_codec::vs_to_byte(chars[last]).expect("last char is a variation selector");
+    chars[last] = vs_codec::byte_to_vs(b ^ 0xFF);
     let mangled: String = chars.into_iter().collect();
     match vs::extract(&mangled) {
-        vs::Decoded::Payload(p) => {
+        Ok(w) => {
             assert_ne!(
-                p, payload,
+                w.payload, payload,
                 "modified payload still parsed; no integrity check"
             )
         }
@@ -146,12 +146,15 @@ fn v1_without_integrity_returns_wrong_payload_under_modification() {
 #[test]
 fn v1_length_field_drop_yields_wrong_payload() {
     let payload = vec![0u8; 40];
-    let mut chars: Vec<char> = vs::embed("", &payload).chars().collect();
+    let mut chars: Vec<char> = vs::embed("", &payload).unwrap().chars().collect();
     chars.remove(13); // low byte of the big-endian length field
     let mangled: String = chars.into_iter().collect();
     match vs::extract(&mangled) {
-        vs::Decoded::Payload(p) => {
-            assert_ne!(p, payload, "length-field drop returned a wrong payload")
+        Ok(w) => {
+            assert_ne!(
+                w.payload, payload,
+                "length-field drop returned a wrong payload"
+            )
         }
         other => panic!("expected an UNSAFE decode from length corruption, got {other:?}"),
     }

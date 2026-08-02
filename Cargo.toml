@@ -1,7 +1,9 @@
 [package]
 name = "c2pa-text-binding"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
+# One MSRV across the crate family; verified with `cargo +1.87 check`.
+rust-version = "1.87"
 description = "C2PA soft binding and content fingerprinting for text assets (watermark + fingerprint family)"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/writerslogic/c2pa-text-binding"
@@ -13,6 +15,14 @@ readme = "README.md"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+# The A.8 variation-selector transport moved here from this crate's own `vs`
+# module: it is a hard-binding carrier, which does not belong in a soft-binding
+# crate. Path dependency until c2pa-unstructured-text is published; this crate
+# cannot be published before that happens. A git dependency would make it
+# permanently unpublishable, so do not use one.
+c2pa-unstructured-text = { path = "../c2pa-unstructured-text", default-features = false, features = [
+    "checksum-v2",
+] }
 sha2 = { version = "0.10", default-features = false }
 hmac = { version = "0.12", default-features = false }
 blake2 = { version = "0.10", default-features = false }

@@ -25,14 +25,14 @@ fn decodes_encypher_reference_output() {
     let text =
         String::from_utf8(unhex(ENCYPHER_WRAPPER_HEX)).expect("reference output is valid UTF-8");
     match vs::extract(&text) {
-        vs::Decoded::Payload(p) => assert_eq!(p, unhex(PAYLOAD_HEX)),
+        Ok(w) => assert_eq!(w.payload, unhex(PAYLOAD_HEX)),
         other => panic!("this crate failed to decode Encypher's wrapper: {other:?}"),
     }
 }
 
 #[test]
 fn encoder_is_byte_identical_to_encypher() {
-    let ours = vs::encode(&unhex(PAYLOAD_HEX));
+    let ours = vs::encode(&unhex(PAYLOAD_HEX)).unwrap();
     assert_eq!(
         ours.as_bytes(),
         unhex(ENCYPHER_WRAPPER_HEX).as_slice(),

@@ -7,7 +7,7 @@
 //! legitimately contains variation selectors, per the Unicode security notes),
 //! and one carrier's output must not decode as another carrier's payload.
 
-use c2pa_text_binding::{tag, vs, zwbin};
+use c2pa_text_binding::{tag, vs, zwbin, Sha256Hasher};
 
 const CLEAN: &[&str] = &[
     "A perfectly ordinary paragraph with no hidden provenance whatsoever.",
@@ -18,7 +18,8 @@ const CLEAN: &[&str] = &[
 ];
 
 fn vs_is_payload(s: &str) -> bool {
-    matches!(vs::extract(s), vs::Decoded::Payload(_))
+    // Either frame counts: the point is whether a payload is recovered at all.
+    vs::v2::extract_any(s, &Sha256Hasher).is_ok()
 }
 fn tag_is_payload(s: &str) -> bool {
     matches!(tag::extract(s), tag::Decoded::Payload(_))
@@ -41,8 +42,8 @@ fn carriers_do_not_confuse_each_other() {
     let host = "The document body used for every carrier under test here.";
     let payload = b"https://fabrikam.com/m/a1b2c3.c2pa";
 
-    let vs_text = vs::embed(host, payload);
-    let vs2_text = vs::embed_v2(host, payload);
+    let vs_text = vs::embed(host, payload).unwrap();
+    let vs2_text = vs::v2::embed(host, payload, &Sha256Hasher).unwrap();
     let tag_text = tag::embed(host, payload);
     let zwbin_text = zwbin::embed(host, payload);
 
