@@ -38,8 +38,47 @@ pub mod soft_binding;
 pub mod stego;
 pub mod structure;
 pub mod tag;
-pub mod vs;
 pub mod zwbin;
+
+/// The A.8 variation-selector transport, re-exported from
+/// [`c2pa-unstructured-text`](https://crates.io/crates/c2pa-unstructured-text).
+///
+/// This was previously a module of this crate. It is a *hard-binding* carrier,
+/// which never belonged alongside the soft-binding family here, so it now lives
+/// in the crate that owns A.8. The re-export keeps it reachable for the
+/// survivability comparison in `examples/transport_survivability.rs`, which
+/// measures the hard-binding carrier against the soft-binding ones.
+///
+/// The API changed with the move: extraction returns `Result<Wrapper, Error>`
+/// rather than a `Decoded` enum, since a wrapper now carries its byte range as
+/// well as its payload.
+pub use c2pa_unstructured_text::wrapper as vs;
+
+/// The byte-level selector codec, re-exported alongside [`vs`].
+pub use c2pa_unstructured_text::vs as vs_codec;
+
+/// SHA-256 for the v2 wrapper checksum, over this crate's existing `sha2`.
+///
+/// The transport crate injects its digest rather than depending on one, so
+/// supplying it here keeps that crate's contribution to this dependency tree at
+/// zero: everything it needs is already present for the soft-binding family.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Sha256Hasher;
+
+impl c2pa_unstructured_text::hardbinding::Hasher for Sha256Hasher {
+    fn digest(&self, alg: c2pa_unstructured_text::hardbinding::Algorithm, data: &[u8]) -> Vec<u8> {
+        use c2pa_unstructured_text::hardbinding::Algorithm;
+        use sha2::Digest;
+        // Honour the requested algorithm rather than always answering SHA-256:
+        // the v2 checksum only asks for SHA-256, but the trait contract is
+        // wider and a silently wrong digest would be worse than a missing one.
+        match alg {
+            Algorithm::Sha256 => sha2::Sha256::digest(data).to_vec(),
+            Algorithm::Sha384 => sha2::Sha384::digest(data).to_vec(),
+            Algorithm::Sha512 => sha2::Sha512::digest(data).to_vec(),
+        }
+    }
+}
 
 #[cfg(target_arch = "wasm32")]
 mod wasm;

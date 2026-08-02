@@ -412,10 +412,11 @@ dependencies = [
 
 [[package]]
 name = "c2pa-text-binding"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "blake2",
  "c2pa",
+ "c2pa-unstructured-text",
  "c2pa_cbor",
  "ciborium",
  "coset 0.3.8",
@@ -432,6 +433,12 @@ dependencies = [
  "unicode-normalization",
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "c2pa-unstructured-text"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e47110a5d8432d39e5f787fcc37a8c4bcf73969e779e5ccf29176fc8a1238b0"
 
 [[package]]
 name = "c2pa_cbor"

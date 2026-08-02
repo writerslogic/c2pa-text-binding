@@ -29,7 +29,8 @@
 
 use c2pa_text_binding::normalize::is_zero_width_format;
 use c2pa_text_binding::simhash::Fingerprint;
-use c2pa_text_binding::{stego, tag, vs, zwbin};
+use c2pa_text_binding::{stego, tag, vs, vs_codec, zwbin, Sha256Hasher};
+use c2pa_unstructured_text::Error as VsError;
 use std::collections::BTreeMap;
 use unicode_normalization::UnicodeNormalization;
 
@@ -100,11 +101,12 @@ fn classify(decoded: Option<Vec<u8>>, corrupt: bool, want: &[u8]) -> Outcome {
     }
 }
 
-fn vs_outcome(d: vs::Decoded, want: &[u8]) -> Outcome {
+fn vs_outcome(d: Result<vs::Wrapper, VsError>, want: &[u8]) -> Outcome {
     match d {
-        vs::Decoded::Payload(p) => classify(Some(p), false, want),
-        vs::Decoded::Corrupt => Outcome::Safe,
-        vs::Decoded::None => Outcome::Gone,
+        Ok(w) => classify(Some(w.payload), false, want),
+        // The codec rejected a mangled carrier rather than decoding it.
+        Err(VsError::CorruptedWrapper) => Outcome::Safe,
+        Err(_) => Outcome::Gone,
     }
 }
 
@@ -155,18 +157,18 @@ fn methods() -> Vec<Method> {
 
     v.push(Method {
         name: "v1ref",
-        embedded: vs::embed(HOST, REFERENCE),
-        recover: Box::new(|t| vs_outcome(vs::extract(t), REFERENCE)),
+        embedded: vs::embed(HOST, REFERENCE).unwrap(),
+        recover: Box::new(|t| vs_outcome(vs::v2::extract_any(t, &Sha256Hasher), REFERENCE)),
     });
     v.push(Method {
         name: "v1inl",
-        embedded: vs::embed(HOST, &inline),
-        recover: Box::new(move |t| vs_outcome(vs::extract(t), &inline)),
+        embedded: vs::embed(HOST, &inline).unwrap(),
+        recover: Box::new(move |t| vs_outcome(vs::v2::extract_any(t, &Sha256Hasher), &inline)),
     });
     v.push(Method {
         name: "v2ref",
-        embedded: vs::embed_v2(HOST, REFERENCE),
-        recover: Box::new(|t| vs_outcome(vs::extract(t), REFERENCE)),
+        embedded: vs::v2::embed(HOST, REFERENCE, &Sha256Hasher).unwrap(),
+        recover: Box::new(|t| vs_outcome(vs::v2::extract_any(t, &Sha256Hasher), REFERENCE)),
     });
     if let Ok(embedded) = stego::embed(HOST, KEY, ZWC_POINTER) {
         v.push(Method {
@@ -212,7 +214,7 @@ fn transports() -> Vec<Transport> {
         }),
         ("strip-variation-sel", |s| {
             s.chars()
-                .filter(|&c| !vs::is_vs(c) && c != vs::MARKER)
+                .filter(|&c| !vs_codec::is_vs(c) && c != vs::MARKER)
                 .collect()
         }),
         ("strip-tags", |s| {
@@ -223,7 +225,7 @@ fn transports() -> Vec<Transport> {
 
 /// Whether `c` belongs to any carrier alphabet used here.
 fn is_carrier_cp(c: char) -> bool {
-    vs::is_vs(c)
+    vs_codec::is_vs(c)
         || c == vs::MARKER
         || tag::is_tag(c)
         || matches!(c, '\u{200B}'..='\u{200D}' | '\u{2060}')
@@ -348,13 +350,13 @@ struct CorpusMethod {
 }
 
 fn cm_v1_embed(h: &str, p: &[u8]) -> Option<String> {
-    Some(vs::embed(h, p))
+    Some(vs::embed(h, p).unwrap())
 }
 fn cm_v2_embed(h: &str, p: &[u8]) -> Option<String> {
-    Some(vs::embed_v2(h, p))
+    Some(vs::v2::embed(h, p, &Sha256Hasher).unwrap())
 }
 fn cm_vs_recover(t: &str, _h: &str, p: &[u8]) -> Outcome {
-    vs_outcome(vs::extract(t), p)
+    vs_outcome(vs::v2::extract_any(t, &Sha256Hasher), p)
 }
 fn cm_tag_embed(h: &str, p: &[u8]) -> Option<String> {
     Some(tag::embed(h, p))

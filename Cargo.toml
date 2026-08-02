@@ -17,10 +17,9 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 # The A.8 variation-selector transport moved here from this crate's own `vs`
 # module: it is a hard-binding carrier, which does not belong in a soft-binding
-# crate. Path dependency until c2pa-unstructured-text is published; this crate
-# cannot be published before that happens. A git dependency would make it
-# permanently unpublishable, so do not use one.
-c2pa-unstructured-text = { path = "../c2pa-unstructured-text", default-features = false, features = [
+# crate. Now published, so this is a version requirement rather than a path:
+# a path or git dependency would make this crate permanently unpublishable.
+c2pa-unstructured-text = { version = "0.1", default-features = false, features = [
     "checksum-v2",
 ] }
 sha2 = { version = "0.10", default-features = false }
