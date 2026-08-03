@@ -137,3 +137,134 @@ mod tests {
         assert_eq!(canonical(input), "the quick brown fox jumps");
     }
 }
+
+/// Stability guarantees, proven rather than asserted.
+///
+/// Every row of the table in `STABILITY.md` has a test here. If a guarantee is
+/// ever weakened, one of these fails.
+#[cfg(test)]
+mod stability {
+    use super::*;
+
+    const BASE: &str = "The quick brown fox, jumps over the lazy dog.";
+
+    /// Transformations the *surface* stream absorbs. These are the guarantees
+    /// `text-fingerprint.1` and `text-minhash.1` rest on.
+    #[test]
+    fn the_surface_stream_is_stable_under_reformatting() {
+        let expect = canonical(BASE);
+        for (name, variant) in [
+            (
+                "CRLF line endings",
+                "The quick brown fox,\r\njumps over the lazy dog.",
+            ),
+            (
+                "LF line endings",
+                "The quick brown fox,\njumps over the lazy dog.",
+            ),
+            (
+                "reflowed paragraph",
+                "The quick\n brown   fox,\n\njumps over\tthe lazy dog.",
+            ),
+            (
+                "leading/trailing space",
+                "   The quick brown fox, jumps over the lazy dog.   ",
+            ),
+            (
+                "upper case",
+                "THE QUICK BROWN FOX, JUMPS OVER THE LAZY DOG.",
+            ),
+            (
+                "mixed case",
+                "tHe QuIcK bRoWn FoX, jUmPs OvEr ThE lAzY dOg.",
+            ),
+            (
+                "punctuation removed",
+                "The quick brown fox jumps over the lazy dog",
+            ),
+            (
+                "punctuation changed",
+                "The quick brown fox; jumps over the lazy dog!",
+            ),
+            (
+                "BOM prefix",
+                "\u{FEFF}The quick brown fox, jumps over the lazy dog.",
+            ),
+            (
+                "zero-width injection",
+                "The qu\u{200B}ick brown fox,\u{200D} jumps over the lazy dog.",
+            ),
+            (
+                "variation selectors",
+                "The quick\u{FE0F} brown fox, jumps over the lazy dog.",
+            ),
+            (
+                "word joiner",
+                "The quick\u{2060} brown fox, jumps over the lazy dog.",
+            ),
+        ] {
+            assert_eq!(
+                canonical(variant),
+                expect,
+                "surface stream changed under: {name}"
+            );
+        }
+    }
+
+    /// NFC is applied, so the same text in NFD normalizes identically. Without
+    /// this, a macOS filesystem round trip would break every fingerprint.
+    #[test]
+    fn the_surface_stream_is_stable_under_unicode_normalization() {
+        // "café" as NFC (é = U+00E9) and NFD (e + U+0301).
+        assert_eq!(canonical("caf\u{00E9}"), canonical("cafe\u{0301}"));
+        assert_eq!(structural("caf\u{00E9}"), structural("cafe\u{0301}"));
+    }
+
+    /// What the surface stream must *not* absorb: if it did, the fingerprint
+    /// would match unrelated text and the recovery layer would be useless.
+    #[test]
+    fn the_surface_stream_changes_when_the_words_change() {
+        let expect = canonical(BASE);
+        for (name, variant) in [
+            (
+                "a word substituted",
+                "The quick brown cat, jumps over the lazy dog.",
+            ),
+            ("a word removed", "The quick fox, jumps over the lazy dog."),
+            (
+                "a word added",
+                "The very quick brown fox, jumps over the lazy dog.",
+            ),
+            (
+                "digits changed",
+                "The quick brown fox 1, jumps over the lazy dog 2.",
+            ),
+        ] {
+            assert_ne!(canonical(variant), expect, "surface stream ignored: {name}");
+        }
+    }
+
+    /// The structural stream deliberately keeps what the surface stream drops —
+    /// that is the signal `text-structure.1` reads. It shares only the NFC and
+    /// zero-width guarantees.
+    #[test]
+    fn the_structural_stream_preserves_case_and_punctuation() {
+        assert_eq!(structural(BASE), BASE);
+        assert_ne!(structural("THE QUICK"), structural("the quick"));
+        assert_ne!(structural("a, b"), structural("a b"));
+        // But zero-width injection and a BOM are still absorbed.
+        assert_eq!(structural("\u{FEFF}a\u{200B}b"), "ab");
+    }
+
+    /// Word tokens follow the surface stream, so they inherit its guarantees.
+    #[test]
+    fn word_tokens_follow_the_surface_stream() {
+        let expect = words(BASE);
+        assert_eq!(words("THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG"), expect);
+        assert_eq!(
+            words("  The\tquick\r\nbrown fox, jumps over the lazy dog.  "),
+            expect
+        );
+        assert!(!expect.iter().any(|w| w.is_empty()), "empty token leaked");
+    }
+}

@@ -115,6 +115,33 @@ pub struct Fingerprint {
 
 impl Fingerprint {
     /// Compute the fingerprint of `text`.
+    ///
+    /// The value is derived from the *surface* stream, so it is unchanged by
+    /// reformatting — line endings, wrapping, case, punctuation, and zero-width
+    /// injection all wash out. See `STABILITY.md` for the exact guarantees.
+    ///
+    /// ```
+    /// use c2pa_text_binding::Fingerprint;
+    ///
+    /// let original = "The quick brown fox, jumps over the lazy dog.";
+    /// let reformatted = "THE QUICK BROWN FOX\r\njumps over   the lazy dog";
+    ///
+    /// // Reformatting does not move the fingerprint.
+    /// assert_eq!(
+    ///     Fingerprint::compute(original).whole,
+    ///     Fingerprint::compute(reformatted).whole
+    /// );
+    /// ```
+    ///
+    /// Changing the words does move it — otherwise it would match anything:
+    ///
+    /// ```
+    /// use c2pa_text_binding::Fingerprint;
+    ///
+    /// let a = Fingerprint::compute("The quick brown fox jumps over the lazy dog");
+    /// let b = Fingerprint::compute("The quick brown cat jumps over the lazy dog");
+    /// assert_ne!(a.whole, b.whole);
+    /// ```
     pub fn compute(text: &str) -> Self {
         let norm = canonical(text);
         let chars: Vec<char> = norm.chars().collect();

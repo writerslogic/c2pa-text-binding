@@ -82,6 +82,34 @@ fn band_hash(rows: &[u64]) -> u64 {
 
 impl MinHash {
     /// Compute the MinHash signature of `text`.
+    ///
+    /// Where [`Fingerprint`](crate::Fingerprint) answers "is this the same
+    /// document after reformatting", MinHash answers "does this *contain* the
+    /// document" — it is built from word shingles, so an excerpt still matches
+    /// the whole.
+    ///
+    /// ```
+    /// use c2pa_text_binding::MinHash;
+    ///
+    /// let article = "The quick brown fox jumps over the lazy dog. \
+    ///                Pack my box with five dozen liquor jugs. \
+    ///                How vexingly quick daft zebras jump!";
+    /// let quotation = "Pack my box with five dozen liquor jugs.";
+    ///
+    /// // A quotation shares shingles with its source, so they overlap.
+    /// let similarity = MinHash::compute(article).jaccard(&MinHash::compute(quotation));
+    /// assert!(similarity > 0.0, "an excerpt should overlap its source");
+    /// ```
+    ///
+    /// Unrelated text does not:
+    ///
+    /// ```
+    /// use c2pa_text_binding::MinHash;
+    ///
+    /// let a = MinHash::compute("The quick brown fox jumps over the lazy dog");
+    /// let b = MinHash::compute("Completely different wording with nothing shared");
+    /// assert!(a.jaccard(&b) < 0.5);
+    /// ```
     pub fn compute(text: &str) -> Self {
         let toks = words(text);
         let shingles = shingles(&toks);
