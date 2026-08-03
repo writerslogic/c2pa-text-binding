@@ -10,12 +10,15 @@
 
 A concrete family of text soft-binding algorithms compatible with the [C2PA Soft Binding](https://spec.c2pa.org/) framework, each registered in the [C2PA soft binding algorithm list](https://github.com/c2pa-org/softbinding-algorithm-list). A soft binding derives a content-keyed value that survives reformatting, re-encoding, excerpting, and light editing, so a manifest is recoverable when the hard binding — a byte-exact hash — has been broken.
 
-| Module | Algorithm (list id) | Kind |
+| Module | Registered `alg` identifier | Kind |
 |---|---|---|
-| `simhash` | `com.writerslogic.text-fingerprint.1` (41) | surface fingerprint |
-| `stego` | `com.writerslogic.zwc-watermark.2` (42) | zero-width watermark |
-| `structure` | `com.writerslogic.text-structure.1` (43) | structural fingerprint |
-| `minhash` | `com.writerslogic.text-minhash.1` (44) | excerpt/quotation fingerprint |
+| `simhash` | `com.writerslogic.text-fingerprint.1` | surface fingerprint |
+| `stego` | `com.writerslogic.zwc-watermark.2` | zero-width watermark |
+| `structure` | `com.writerslogic.text-structure.1` | structural fingerprint |
+| `minhash` | `com.writerslogic.text-minhash.1` | excerpt/quotation fingerprint |
+
+The `alg` string is what a `c2pa.soft-binding` assertion carries and what a
+recovery service matches on; it is the identifier that matters.
 
 This crate is the **perceptual/watermark recovery layer**. It is distinct from the Variation-Selector transport used elsewhere in WritersProof, which is a *hard* binding (a `c2pa.hash.data` over normalized text) and is not soft binding. Registration in the algorithm list is **not** C2PA conformance certification.
 
