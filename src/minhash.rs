@@ -27,8 +27,11 @@ const PERM_SEED: u64 = 0x0123_4567_89AB_CDEF;
 /// A MinHash signature plus its LSH band hashes.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MinHash {
+    /// The MinHash signature: one minimum per permutation.
     pub sig: [u64; NUM_PERM],
+    /// LSH band hashes, for candidate lookup without a full comparison.
     pub bands: [u64; BANDS],
+    /// Number of distinct shingles the signature was built from.
     pub shingle_count: usize,
 }
 

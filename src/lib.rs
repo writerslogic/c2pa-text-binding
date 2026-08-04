@@ -28,7 +28,10 @@
 //! as C2PA conformance certification, which is a separate program this crate
 //! makes no claim to.
 
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
 pub mod crosscheck;
+/// Errors from the soft-binding algorithms.
 pub mod error;
 pub mod manifest;
 pub mod minhash;

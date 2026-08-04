@@ -52,8 +52,11 @@ pub fn embed(text: &str, payload: &[u8]) -> String {
 /// Decode outcome, mirroring [`crate::vs::Decoded`] for uniform classification.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Decoded {
+    /// No payload was present.
     None,
+    /// A payload was detected but did not decode; the carrier was mangled.
     Corrupt,
+    /// A payload that decoded cleanly.
     Payload(Vec<u8>),
 }
 

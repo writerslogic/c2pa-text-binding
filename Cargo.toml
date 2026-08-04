@@ -53,3 +53,8 @@ proptest = "1"
 # no OpenSSL, so it never touches the shipped library or the wasm build.
 c2pa = { version = "0.89", default-features = false, features = ["rust_native_crypto"] }
 c2pa_cbor = "0.77"
+
+# docs.rs renders optional features only when told to; without this the
+# feature-gated API is invisible on the crate's docs page.
+[package.metadata.docs.rs]
+all-features = true

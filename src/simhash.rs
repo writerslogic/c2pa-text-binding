@@ -101,15 +101,20 @@ fn simhash_4grams(chars: &[char]) -> Hash256 {
 /// A window fingerprint scoped by its `(start, len)` over the normalized stream.
 #[derive(Clone, Debug)]
 pub struct WindowFp {
+    /// Start of the window, in tokens of the normalized stream.
     pub start: usize,
+    /// Window length in tokens.
     pub len: usize,
+    /// The window's fingerprint.
     pub hash: Hash256,
 }
 
 /// A whole-document fingerprint plus overlapping window fingerprints.
 #[derive(Clone, Debug)]
 pub struct Fingerprint {
+    /// Fingerprint of the whole document.
     pub whole: Hash256,
+    /// Overlapping window fingerprints, which let an excerpt match its source.
     pub windows: Vec<WindowFp>,
 }
 
