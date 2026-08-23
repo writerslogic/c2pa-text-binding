@@ -1,3 +1,7 @@
+# c2pa-text-binding
+
+_C2PA soft binding and content fingerprinting for text assets (watermark + fingerprint family)._
+
 <p align="center">
   <a href="https://crates.io/crates/c2pa-text-binding"><img src="https://img.shields.io/crates/v/c2pa-text-binding.svg" alt="crates.io"></a>
   <a href="https://docs.rs/c2pa-text-binding"><img src="https://docs.rs/c2pa-text-binding/badge.svg" alt="docs.rs"></a>
@@ -26,7 +30,14 @@ This crate is the **perceptual/watermark recovery layer**. It is distinct from t
 
 ```toml
 [dependencies]
-c2pa-text-binding = "0.2"
+c2pa-text-binding = "0.3"
+```
+
+The same crate is published for JavaScript/WebAssembly and Python, built from this source:
+
+```bash
+npm install c2pa-text-binding   # wasm-bindgen build
+pip install c2pa-text-binding   # PyO3 abi3 wheel, CPython 3.9+
 ```
 
 ### Emit and sign a `c2pa.soft-binding` assertion
