@@ -28,6 +28,20 @@ use crate::simhash::{Fingerprint, Hash256};
 
 /// The C2PA assertion label a soft-binding payload is stored under.
 pub const SOFT_BINDING_LABEL: &str = "c2pa.soft-binding";
+/// Action identifier used when a watermark has been successfully bound to a
+/// manifest.
+pub const WATERMARKED_BOUND_ACTION: &str = "c2pa.watermarked.bound";
+
+/// Return the collision-safe assertion label for a zero-based occurrence.
+/// The first assertion uses the base label; subsequent assertions use the C2PA
+/// `__1`, `__2`, … suffix convention.
+pub fn assertion_label(index: usize) -> String {
+    if index == 0 {
+        SOFT_BINDING_LABEL.to_string()
+    } else {
+        format!("{SOFT_BINDING_LABEL}__{index}")
+    }
+}
 
 /// Registered algorithm identifier for `text-fingerprint.1` (list id 41).
 pub const ALG_FINGERPRINT: &str = "com.writerslogic.text-fingerprint.1";
@@ -112,6 +126,10 @@ pub struct Text {
 pub struct TextSelectorRange {
     /// The selector giving the start and end character offsets.
     pub selector: TextSelector,
+    /// Optional second selector bounding a range across fragments. It is not
+    /// needed for plain text but is part of the C2PA wire type.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end: Option<TextSelector>,
 }
 
 /// A character-offset selector. `fragment` is required by the C2PA type; for
@@ -142,9 +160,21 @@ impl SoftBinding {
 
     /// Push a block scoped to the character range `[start, start+len)` of the
     /// normalized stream. Used to record the surface fingerprint's windows.
-    pub fn push_window(&mut self, start: usize, len: usize, value_hex: String) {
-        let s = i32::try_from(start).unwrap_or(i32::MAX);
-        let e = i32::try_from(start.saturating_add(len)).unwrap_or(i32::MAX);
+    pub fn push_window(
+        &mut self,
+        start: usize,
+        len: usize,
+        value_hex: String,
+    ) -> Result<(), Error> {
+        let end = start.checked_add(len).ok_or_else(|| {
+            Error::InvalidInput("soft-binding window range overflows usize".into())
+        })?;
+        let s = i32::try_from(start).map_err(|_| {
+            Error::InvalidInput(format!("soft-binding window start {start} exceeds i32"))
+        })?;
+        let e = i32::try_from(end).map_err(|_| {
+            Error::InvalidInput(format!("soft-binding window end {end} exceeds i32"))
+        })?;
         self.blocks.push(Block {
             scope: Scope {
                 region: Some(RegionOfInterest {
@@ -157,6 +187,7 @@ impl SoftBinding {
                                     start: Some(s),
                                     end: Some(e),
                                 },
+                                end: None,
                             }],
                         }),
                     }],
@@ -164,6 +195,7 @@ impl SoftBinding {
             },
             value: value_hex,
         });
+        Ok(())
     }
 
     /// Serialize to deterministic CBOR (the assertion payload to be signed).
@@ -176,19 +208,30 @@ impl SoftBinding {
 
     /// Parse a soft-binding assertion back from CBOR (for verifiers and tests).
     pub fn from_cbor(bytes: &[u8]) -> Result<Self, Error> {
-        ciborium::from_reader(bytes)
-            .map_err(|e| Error::InvalidInput(format!("soft-binding CBOR decode: {e}")))
+        let decoded: Self = ciborium::from_reader(bytes)
+            .map_err(|e| Error::InvalidInput(format!("soft-binding CBOR decode: {e}")))?;
+        if decoded.alg.trim().is_empty() {
+            return Err(Error::InvalidInput(
+                "soft-binding assertion has an empty alg".into(),
+            ));
+        }
+        if decoded.blocks.is_empty() {
+            return Err(Error::InvalidInput(
+                "soft-binding assertion must contain at least one block".into(),
+            ));
+        }
+        Ok(decoded)
     }
 }
 
 /// Build the `text-fingerprint.1` (list id 41) soft binding: the whole-document
 /// SimHash plus one scoped block per overlapping window.
-pub fn from_fingerprint(fp: &Fingerprint) -> SoftBinding {
+pub fn from_fingerprint(fp: &Fingerprint) -> Result<SoftBinding, Error> {
     let mut sb = SoftBinding::whole(ALG_FINGERPRINT, fp.whole.to_hex());
     for w in &fp.windows {
-        sb.push_window(w.start, w.len, w.hash.to_hex());
+        sb.push_window(w.start, w.len, w.hash.to_hex())?;
     }
-    sb
+    Ok(sb)
 }
 
 /// Build the `text-structure.1` (list id 43) soft binding: the whole-document
@@ -229,8 +272,8 @@ mod tests {
     #[test]
     fn windows_carry_textual_char_ranges() {
         let mut sb = SoftBinding::whole(ALG_FINGERPRINT, "00".into());
-        sb.push_window(0, 512, "11".into());
-        sb.push_window(256, 512, "22".into());
+        sb.push_window(0, 512, "11".into()).unwrap();
+        sb.push_window(256, 512, "22".into()).unwrap();
         assert_eq!(sb.blocks.len(), 3);
         let win = &sb.blocks[1];
         let sel = &win.scope.region.as_ref().unwrap().region[0]
@@ -255,5 +298,35 @@ mod tests {
         let back = SoftBinding::from_cbor(&bytes).unwrap();
         assert_eq!(back.alg, ALG_WATERMARK);
         assert!(!back.blocks.is_empty());
+    }
+
+    #[test]
+    fn assertion_labels_are_collision_safe() {
+        assert_eq!(assertion_label(0), "c2pa.soft-binding");
+        assert_eq!(assertion_label(1), "c2pa.soft-binding__1");
+        assert_eq!(assertion_label(3), "c2pa.soft-binding__3");
+    }
+
+    #[test]
+    fn decode_rejects_empty_required_collections() {
+        let mut empty_alg = SoftBinding::whole("", "00".into()).to_cbor().unwrap();
+        assert!(SoftBinding::from_cbor(&empty_alg).is_err());
+
+        let empty_blocks = SoftBinding {
+            alg: ALG_FINGERPRINT.into(),
+            blocks: Vec::new(),
+            name: None,
+            pad: Vec::new(),
+        };
+        empty_alg = empty_blocks.to_cbor().unwrap();
+        assert!(SoftBinding::from_cbor(&empty_alg).is_err());
+    }
+
+    #[test]
+    fn window_offsets_fail_instead_of_clamping() {
+        let mut sb = SoftBinding::whole(ALG_FINGERPRINT, "00".into());
+        assert!(sb
+            .push_window(i32::MAX as usize + 1, 1, "11".into())
+            .is_err());
     }
 }

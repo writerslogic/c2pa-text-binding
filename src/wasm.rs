@@ -143,10 +143,12 @@ pub fn verify(cose_hex: &str, public_hex: &str) -> Result<String, JsError> {
 /// as CBOR, hex-encoded. Sign the result with [`sign`] and store it under the
 /// `c2pa.soft-binding` label. Includes per-window scoped blocks.
 #[wasm_bindgen]
-pub fn soft_binding_fingerprint(text: &str) -> String {
+pub fn soft_binding_fingerprint(text: &str) -> Result<String, JsError> {
     let fp = simhash::Fingerprint::compute(text);
-    let sb = soft_binding::from_fingerprint(&fp);
-    hex::encode(sb.to_cbor().expect("soft-binding CBOR encode"))
+    let sb = soft_binding::from_fingerprint(&fp).map_err(|e| JsError::new(&e.to_string()))?;
+    Ok(hex::encode(
+        sb.to_cbor().map_err(|e| JsError::new(&e.to_string()))?,
+    ))
 }
 
 /// Build the `c2pa.soft-binding` assertion (list id 43, structural) as CBOR hex.

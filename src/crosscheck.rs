@@ -248,7 +248,7 @@ mod tests {
         let text = "The principles of provenance require that a document's origin can be \
             recovered even after it has been copied, reformatted, or lightly edited, so a \
             manifest can be found again when the embedded one is stripped away.";
-        let sb = soft_binding::from_fingerprint(&Fingerprint::compute(text));
+        let sb = soft_binding::from_fingerprint(&Fingerprint::compute(text)).unwrap();
 
         // Same text + crosscheck -> BOUND.
         assert_eq!(verify(text, &sb, false, true), Confidence::Bound);

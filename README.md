@@ -51,11 +51,22 @@ use c2pa_text_binding::{simhash::Fingerprint, soft_binding, sign_cose, SOFT_BIND
 
 let text = "…the document being bound…";
 let secret_key = [7u8; 32];                   // caller-supplied Ed25519 secret
-let assertion = soft_binding::from_fingerprint(&Fingerprint::compute(text));
+let assertion = soft_binding::from_fingerprint(&Fingerprint::compute(text))?;
 let cbor = assertion.to_cbor()?;              // store under SOFT_BINDING_LABEL
 let signed = sign_cose(&cbor, &secret_key)?;  // detached-key COSE_Sign1
 # Ok::<(), c2pa_text_binding::Error>(())
 ```
+
+When a manifest carries more than one soft-binding assertion, use
+`assertion_label(0)` for `c2pa.soft-binding`, then `assertion_label(1)`,
+`assertion_label(2)`, and so on for the required `__1`, `__2` suffixes.
+
+For an inserted watermark, the manifest's actions assertion should record
+`c2pa.watermarked.bound`. Its `parameters.relatedAssertions` array should
+contain a hashed JUMBF URI resolving to the corresponding soft-binding
+assertion in the same manifest. The crate exposes this action identifier as
+`WATERMARKED_BOUND_ACTION`; assembling the actions assertion and hashed URI
+remains the manifest builder's responsibility.
 
 ### Recover and classify a candidate
 
@@ -70,7 +81,7 @@ or a watermark hit alone caps at LIKELY. Tier thresholds are grounded in
 use c2pa_text_binding::{simhash::Fingerprint, soft_binding::{self, SoftBinding}, verify, Confidence};
 
 let text = "…the document being bound…";
-let cbor = soft_binding::from_fingerprint(&Fingerprint::compute(text)).to_cbor()?;
+let cbor = soft_binding::from_fingerprint(&Fingerprint::compute(text))?.to_cbor()?;
 
 let candidate = SoftBinding::from_cbor(&cbor)?;
 let tier = verify(text, &candidate, /*watermark_verified=*/ false, /*crosscheck_ok=*/ true);
