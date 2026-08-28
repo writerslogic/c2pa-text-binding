@@ -96,5 +96,7 @@ pub use error::Error;
 pub use manifest::{public_key, sign_cose, verify_cose};
 pub use minhash::MinHash;
 pub use simhash::{Fingerprint, Hash256};
-pub use soft_binding::{SoftBinding, SOFT_BINDING_LABEL};
+pub use soft_binding::{
+    assertion_label, SoftBinding, SOFT_BINDING_LABEL, WATERMARKED_BOUND_ACTION,
+};
 pub use stego::{embed, extract, Recovered};

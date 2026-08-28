@@ -134,9 +134,13 @@ fn cross_check(key_hex: &str, repo_id: &str, content_hash_hex: &str) -> PyResult
 /// Build the `c2pa.soft-binding` assertion (id 41, surface fingerprint) as CBOR,
 /// hex-encoded. Sign the result with [`sign`]; includes per-window blocks.
 #[pyfunction]
-fn soft_binding_fingerprint(text: &str) -> String {
-    let sb = soft_binding::from_fingerprint(&simhash::Fingerprint::compute(text));
-    hex::encode(sb.to_cbor().expect("soft-binding CBOR encode"))
+fn soft_binding_fingerprint(text: &str) -> PyResult<String> {
+    let sb = soft_binding::from_fingerprint(&simhash::Fingerprint::compute(text))
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    Ok(hex::encode(
+        sb.to_cbor()
+            .map_err(|e| PyValueError::new_err(e.to_string()))?,
+    ))
 }
 
 /// Build the `c2pa.soft-binding` assertion (id 43, structural) as CBOR hex.

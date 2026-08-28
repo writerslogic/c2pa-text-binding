@@ -43,7 +43,7 @@ fn label_matches_reference_reader() {
 #[test]
 fn fingerprint_assertion_roundtrips_through_c2pa() {
     let fp = Fingerprint::compute(&LONG.repeat(4)); // long enough to have windows
-    let sb = soft_binding::from_fingerprint(&fp);
+    let sb = soft_binding::from_fingerprint(&fp).unwrap();
     assert!(!fp.windows.is_empty(), "test text must exercise windows");
 
     let bytes = sb.to_cbor().unwrap();
