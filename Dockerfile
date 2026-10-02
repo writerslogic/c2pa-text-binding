@@ -8,7 +8,7 @@
 #   docker run --rm c2pa-transport            # Tier 1 matrix
 #   docker run --rm c2pa-transport \
 #       cargo run -q --release --example transport_survivability   # Tier 0
-FROM rust:1-slim-bookworm@sha256:96c0af8cf054fd006435089f0076729716784ec9be485bd655de59c55df105ce
+FROM rust:1-slim-bookworm@sha256:1469a27c125cb5a3aebfa4f4e4665d935b02fb72cc093b2c974b3d740e43f157
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         pandoc \
