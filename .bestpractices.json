@@ -125,12 +125,12 @@
   "static_analysis_fixed_justification": "CI enforces `-D warnings` (deny), so any clippy finding blocks merge until fixed; git log shows dedicated fix commits addressing tool findings, e.g. ebe61fc 'fix(security): autofix 3rd party Github Actions should be pinned' resolving an Aikido SAST finding (PR #14).",
   "static_analysis_often_status": "Met",
   "static_analysis_often_justification": "ci.yml runs clippy on every push to main and every pull request (not just before releases), per the `on: push/pull_request` triggers in .github/workflows/ci.yml.",
-  "dynamic_analysis_status": "Unmet",
-  "dynamic_analysis_justification": "No dynamic analysis tool (e.g. fuzzing via cargo-fuzz, sanitizers) is configured in any workflow under .github/workflows/ or referenced in Cargo.toml; only proptest (property-based testing, not a dynamic analysis/fuzzing harness in the OpenSSF sense) is present as a dev-dependency.",
+  "dynamic_analysis_status": "Met",
+  "dynamic_analysis_justification": "A cargo-fuzz target (fuzz/fuzz_targets/parse_untrusted.rs) drives the crate's untrusted-input parsers with libFuzzer; fuzz/README.md documents how to run it.",
   "dynamic_analysis_unsafe_status": "N/A",
   "dynamic_analysis_unsafe_justification": "src/lib.rs declares `#![forbid(unsafe_code)]`, so there is no memory-unsafe (unsafe Rust/C/C++) code in this crate to analyze with a memory-safety dynamic tool.",
-  "dynamic_analysis_enable_assertions_status": "Unmet",
-  "dynamic_analysis_enable_assertions_justification": "No dynamic analysis configuration exists (see dynamic_analysis above), so there is no assertion-enabling config to evaluate.",
+  "dynamic_analysis_enable_assertions_status": "Met",
+  "dynamic_analysis_enable_assertions_justification": "The fuzz target builds with cargo-fuzz's default dev profile, which enables debug assertions and overflow checks, so Rust's integer-overflow and bounds checks act as assertions during fuzzing.",
   "dynamic_analysis_fixed_status": "N/A",
   "dynamic_analysis_fixed_justification": "No dynamic analysis tool is currently applied (see dynamic_analysis above), so there are no dynamic-analysis findings to have fixed."
 }
