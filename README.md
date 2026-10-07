@@ -1,14 +1,8 @@
-<!-- repo-header:start -->
-<img src="https://github.com/writerslogic.png?size=160" alt="c2pa-text-binding logo" width="120" align="left">
+### c2pa-text-binding
 
-<h1>c2pa-text-binding</h1>
+C2PA soft binding and content fingerprinting for text assets.
 
-<p><strong>C2PA soft binding and content fingerprinting for text assets</strong></p>
-
-<br clear="left">
-
-[![CI](https://img.shields.io/github/actions/workflow/status/writerslogic/c2pa-text-binding/ci.yml?style=flat-square&labelColor=20232a&branch=main&label=CI)](https://github.com/writerslogic/c2pa-text-binding/actions/workflows/ci.yml) [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/writerslogic/c2pa-text-binding?style=flat-square&labelColor=20232a&label=OpenSSF)](https://securityscorecards.dev/viewer/?uri=github.com/writerslogic/c2pa-text-binding) [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14415/badge)](https://www.bestpractices.dev/projects/14415) [![License](https://img.shields.io/github/license/writerslogic/c2pa-text-binding?style=flat-square&labelColor=20232a&color=007ec6&label=license)](https://github.com/writerslogic/c2pa-text-binding/blob/main/LICENSE-APACHE) [![Code of Conduct](https://img.shields.io/badge/code%20of%20conduct-Contributor%20Covenant%202.1-6a4c93?style=flat-square&labelColor=20232a)](https://github.com/writerslogic/c2pa-text-binding/blob/main/CODE_OF_CONDUCT.md) [![C2PA](https://img.shields.io/badge/standard-C2PA%20related-6a4c93?style=flat-square&labelColor=20232a)](https://c2pa.org/) [![GitHub Sponsors](https://img.shields.io/badge/GitHub%20Sponsors-Sponsor-EA4AAA?style=flat-square&labelColor=20232a)](https://github.com/sponsors/dcondrey) <a href="https://crates.io/crates/c2pa-text-binding"><img src="https://img.shields.io/crates/v/c2pa-text-binding.svg?style=flat-square&labelColor=20232a&color=007ec6" alt="crates.io"></a> <a href="https://docs.rs/c2pa-text-binding"><img src="https://img.shields.io/docsrs/c2pa-text-binding?style=flat-square&labelColor=20232a&color=007ec6" alt="docs.rs"></a>
-<!-- repo-header:end -->
+[![CI](https://img.shields.io/github/actions/workflow/status/writerslogic/c2pa-text-binding/ci.yml?branch=main&label=CI)](https://github.com/writerslogic/c2pa-text-binding/actions/workflows/ci.yml) [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/writerslogic/c2pa-text-binding)](https://securityscorecards.dev/viewer/?uri=github.com/writerslogic/c2pa-text-binding) [![crates.io](https://img.shields.io/crates/v/c2pa-text-binding.svg)](https://crates.io/crates/c2pa-text-binding) [![License](https://img.shields.io/crates/l/c2pa-text-binding.svg)](#license)
 
 ## Overview
 
