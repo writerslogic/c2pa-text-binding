@@ -13,6 +13,11 @@ keywords = ["c2pa", "provenance", "text", "fingerprint", "soft-binding"]
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Text Processing",
     "Topic :: Security :: Cryptography",
 ]
